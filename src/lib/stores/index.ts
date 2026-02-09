@@ -285,6 +285,8 @@ type Config = {
 	ui?: {
 		pending_user_overlay_title?: string;
 		pending_user_overlay_description?: string;
+		memory_service_url?: string;
+		commit_command?: string;
 	};
 };
 

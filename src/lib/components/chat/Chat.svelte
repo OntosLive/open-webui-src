@@ -1669,6 +1669,111 @@
 		let _chatId = JSON.parse(JSON.stringify($chatId));
 		_history = JSON.parse(JSON.stringify(_history));
 
+		const parentMessage = _history?.messages?.[parentId];
+		const commitCommand = ($config?.ui?.commit_command ?? '/commit').trim();
+		const memoryServiceUrl = $config?.ui?.memory_service_url ?? 'http://memory-service:8090';
+		const parentContent =
+			typeof parentMessage?.content === 'string' ? parentMessage.content : '';
+		const isCommitCommand =
+			commitCommand.length > 0 && parentContent.trimStart().startsWith(commitCommand);
+
+		if (isCommitCommand) {
+			// Create new chat if newChat is true and first user message
+			if (newChat && _history.messages[_history.currentId].parentId === null) {
+				_chatId = await initChatHandler(_history);
+			}
+
+			const priorMessages = createMessagesList(_history, parentId).slice(0, -1);
+			let previousAssistant = null;
+			let previousUser = null;
+			let assistantIdx = -1;
+
+			for (let i = priorMessages.length - 1; i >= 0; i--) {
+				if (priorMessages[i]?.role === 'assistant') {
+					previousAssistant = priorMessages[i];
+					assistantIdx = i;
+					break;
+				}
+			}
+
+			if (assistantIdx !== -1) {
+				for (let i = assistantIdx - 1; i >= 0; i--) {
+					if (priorMessages[i]?.role === 'user') {
+						previousUser = priorMessages[i];
+						break;
+					}
+				}
+			}
+
+			let ackContent = '[OntoGit] ⚠️ commit failed: missing previous user/assistant pair';
+
+			if (previousAssistant && previousUser) {
+				const sceneBody = `## User\n${previousUser.content}\n\n## Assistant\n${previousAssistant.content}\n`;
+                               const commitUrl = `/api/v1/ontogit_commit`;
+
+				try {
+					const res = await fetch(commitUrl, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							user_id: $user?.id ?? 'default',
+							body: sceneBody
+						})
+					});
+
+					if (!res.ok) {
+						throw new Error(`HTTP ${res.status}`);
+					}
+
+					const data = await res.json();
+					if (!data?.ok || !data?.path) {
+						throw new Error('Invalid response');
+					}
+
+					ackContent = `[OntoGit] ✅ committed: ${data.path}`;
+				} catch (error) {
+					ackContent = `[OntoGit] ⚠️ commit failed: ${error?.message ?? 'request failed'}`;
+					console.error(error);
+				}
+			}
+
+			let responseMessageId = uuidv4();
+			let responseMessage = {
+				parentId: parentId,
+				id: responseMessageId,
+				childrenIds: [],
+				role: 'assistant',
+				content: ackContent,
+				model: 'ontogit',
+				modelName: 'OntoGit',
+				modelIdx: 0,
+				timestamp: Math.floor(Date.now() / 1000) // Unix epoch
+			};
+
+			history.messages[responseMessageId] = responseMessage;
+			history.currentId = responseMessageId;
+
+			if (parentId !== null && history.messages[parentId]) {
+				history.messages[parentId].childrenIds = [
+					...history.messages[parentId].childrenIds,
+					responseMessageId
+				];
+			}
+
+			history = history;
+
+			await tick();
+			_history = JSON.parse(JSON.stringify(history));
+			await saveChatHandler(_chatId, _history);
+
+			currentChatPage.set(1);
+			chats.set(await getChatList(localStorage.token, $currentChatPage));
+
+			return;
+		}
+
 		const responseMessageIds: Record<PropertyKey, string> = {};
 		// If modelId is provided, use it, else use selected model
 		let selectedModelIds = modelId

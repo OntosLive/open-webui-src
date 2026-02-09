@@ -1243,6 +1243,18 @@ RESPONSE_WATERMARK = PersistentConfig(
     os.environ.get("RESPONSE_WATERMARK", ""),
 )
 
+MEMORY_SERVICE_URL = PersistentConfig(
+    "MEMORY_SERVICE_URL",
+    "ui.memory_service_url",
+    os.environ.get("MEMORY_SERVICE_URL", "http://memory-service:8090"),
+)
+
+COMMIT_COMMAND = PersistentConfig(
+    "COMMIT_COMMAND",
+    "ui.commit_command",
+    os.environ.get("COMMIT_COMMAND", "/commit"),
+)
+
 
 USER_PERMISSIONS_WORKSPACE_MODELS_ACCESS = (
     os.environ.get("USER_PERMISSIONS_WORKSPACE_MODELS_ACCESS", "False").lower()

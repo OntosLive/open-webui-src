@@ -376,6 +376,8 @@ from open_webui.config import (
     DEFAULT_ARENA_MODEL,
     MODEL_ORDER_LIST,
     EVALUATION_ARENA_MODELS,
+    MEMORY_SERVICE_URL,
+    COMMIT_COMMAND,
     # WebUI (OAuth)
     ENABLE_OAUTH_ROLE_MANAGEMENT,
     OAUTH_ROLES_CLAIM,
@@ -767,6 +769,8 @@ app.state.config.PENDING_USER_OVERLAY_CONTENT = PENDING_USER_OVERLAY_CONTENT
 app.state.config.PENDING_USER_OVERLAY_TITLE = PENDING_USER_OVERLAY_TITLE
 
 app.state.config.RESPONSE_WATERMARK = RESPONSE_WATERMARK
+app.state.config.MEMORY_SERVICE_URL = MEMORY_SERVICE_URL
+app.state.config.COMMIT_COMMAND = COMMIT_COMMAND
 
 app.state.config.USER_PERMISSIONS = USER_PERMISSIONS
 app.state.config.WEBHOOK_URL = WEBHOOK_URL
@@ -1971,6 +1975,8 @@ async def get_app_config(request: Request):
                     "pending_user_overlay_title": app.state.config.PENDING_USER_OVERLAY_TITLE,
                     "pending_user_overlay_content": app.state.config.PENDING_USER_OVERLAY_CONTENT,
                     "response_watermark": app.state.config.RESPONSE_WATERMARK,
+                    "memory_service_url": app.state.config.MEMORY_SERVICE_URL,
+                    "commit_command": app.state.config.COMMIT_COMMAND,
                 },
                 "license_metadata": app.state.LICENSE_METADATA,
                 **(
@@ -2384,3 +2390,13 @@ else:
     log.warning(
         f"Frontend build directory not found at '{FRONTEND_BUILD_DIR}'. Serving API only."
     )
+
+app.include_router(ontogit.router, prefix="/api/v1")
+
+# --- OntoGit router hookup (safe append) ---
+try:
+    from open_webui.routers.ontogit import router as ontogit_router
+    app.include_router(ontogit_router, prefix="/api/v1")
+except Exception as e:
+    # don't crash startup if something is off
+    pass
