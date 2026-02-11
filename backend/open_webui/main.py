@@ -772,7 +772,9 @@ app.state.config.PENDING_USER_OVERLAY_TITLE = PENDING_USER_OVERLAY_TITLE
 app.state.config.RESPONSE_WATERMARK = RESPONSE_WATERMARK
 app.state.config.MEMORY_SERVICE_URL = MEMORY_SERVICE_URL
 app.state.config.COMMIT_COMMAND = COMMIT_COMMAND
-if "memory-service" in (MEMORY_SERVICE_URL or "") or ":8090" in (MEMORY_SERVICE_URL or ""):
+msu = MEMORY_SERVICE_URL.value if hasattr(MEMORY_SERVICE_URL, "value") else MEMORY_SERVICE_URL
+msu = msu or ""
+if "memory-service" in msu or ":8090" in msu:
     log.warning(
         "memory_service_url points to memory-service; clients must use %s for recall",
         CANON_RECALL_ENDPOINT,
