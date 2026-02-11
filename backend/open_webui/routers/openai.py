@@ -136,6 +136,11 @@ async def get_headers_and_cookies(
         ),
     }
 
+    # Canonical per-user propagation for downstream OpenAI-compatible proxies.
+    # This header is stable and should carry OpenWebUI authenticated user id.
+    if user and getattr(user, "id", None):
+        headers["X-OpenWebUI-User-Id"] = str(user.id)
+
     if ENABLE_FORWARD_USER_INFO_HEADERS and user:
         headers = include_user_info_headers(headers, user)
         if metadata and metadata.get("chat_id"):
