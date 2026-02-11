@@ -94,6 +94,10 @@ from open_webui.routers import (
     utils,
     scim,
 )
+try:
+    from open_webui.routers import ontogit
+except Exception:
+    ontogit = None
 
 from open_webui.routers.retrieval import (
     get_embedding_function,
@@ -2399,18 +2403,10 @@ else:
         f"Frontend build directory not found at '{FRONTEND_BUILD_DIR}'. Serving API only."
     )
 
-if os.environ.get(SERVICE_AUTH_ENV):
-    app.include_router(ontogit.router, prefix="/api/v1")
-else:
-    log.error("ONTOS service auth secret missing; ontogit routes disabled")
-
-# --- OntoGit router hookup (safe append) ---
-try:
-    from open_webui.routers.ontogit import router as ontogit_router
+if ontogit is not None:
     if os.environ.get(SERVICE_AUTH_ENV):
-        app.include_router(ontogit_router, prefix="/api/v1")
+        app.include_router(ontogit.router, prefix="/api/v1")
     else:
         log.error("ONTOS service auth secret missing; ontogit routes disabled")
-except Exception as e:
-    # don't crash startup if something is off
-    pass
+else:
+    log.warning("OntoGit router not available; skipping")
