@@ -440,6 +440,7 @@ from open_webui.config import (
     AppConfig,
     reset_config,
 )
+from open_webui.ontogit.constants import CANON_RECALL_ENDPOINT, SERVICE_AUTH_ENV
 from open_webui.env import (
     ENABLE_CUSTOM_MODEL_FALLBACK,
     LICENSE_KEY,
@@ -771,6 +772,11 @@ app.state.config.PENDING_USER_OVERLAY_TITLE = PENDING_USER_OVERLAY_TITLE
 app.state.config.RESPONSE_WATERMARK = RESPONSE_WATERMARK
 app.state.config.MEMORY_SERVICE_URL = MEMORY_SERVICE_URL
 app.state.config.COMMIT_COMMAND = COMMIT_COMMAND
+if "memory-service" in (MEMORY_SERVICE_URL or "") or ":8090" in (MEMORY_SERVICE_URL or ""):
+    log.warning(
+        "memory_service_url points to memory-service; clients must use %s for recall",
+        CANON_RECALL_ENDPOINT,
+    )
 
 app.state.config.USER_PERMISSIONS = USER_PERMISSIONS
 app.state.config.WEBHOOK_URL = WEBHOOK_URL
@@ -2391,12 +2397,18 @@ else:
         f"Frontend build directory not found at '{FRONTEND_BUILD_DIR}'. Serving API only."
     )
 
-app.include_router(ontogit.router, prefix="/api/v1")
+if os.environ.get(SERVICE_AUTH_ENV):
+    app.include_router(ontogit.router, prefix="/api/v1")
+else:
+    log.error("ONTOS service auth secret missing; ontogit routes disabled")
 
 # --- OntoGit router hookup (safe append) ---
 try:
     from open_webui.routers.ontogit import router as ontogit_router
-    app.include_router(ontogit_router, prefix="/api/v1")
+    if os.environ.get(SERVICE_AUTH_ENV):
+        app.include_router(ontogit_router, prefix="/api/v1")
+    else:
+        log.error("ONTOS service auth secret missing; ontogit routes disabled")
 except Exception as e:
     # don't crash startup if something is off
     pass

@@ -15,7 +15,7 @@ services:
     image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
     container_name: open-webui
     volumes:
-      - open-webui:/app/backend/data
+      - /home/ontoslive/ontos_data/openwebui-data:/app/backend/data
     depends_on:
       - ollama
     ports:
@@ -23,10 +23,10 @@ services:
     environment:
       - 'OLLAMA_BASE_URL=http://ollama:11434'
       - 'WEBUI_SECRET_KEY='
+      - 'ONTOS_SERVICE_AUTH_SECRET=${ONTOS_SERVICE_AUTH_SECRET}'
     extra_hosts:
       - host.docker.internal:host-gateway
     restart: unless-stopped
 
 volumes:
   ollama: {}
-  open-webui: {}

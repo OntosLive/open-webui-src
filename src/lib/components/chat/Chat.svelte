@@ -57,6 +57,7 @@
 		isYoutubeUrl
 	} from '$lib/utils';
 	import { AudioQueue } from '$lib/utils/audio';
+	import { handleOntogitResponse } from '$lib/utils/ontogitWarnings';
 
 	import {
 		createNewChat,
@@ -1723,11 +1724,10 @@
 						})
 					});
 
-					if (!res.ok) {
-						throw new Error(`HTTP ${res.status}`);
-					}
+					await handleOntogitResponse(res);
+					const data = await res.json().catch(() => null);
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-					const data = await res.json();
 					if (!data?.ok || !data?.path) {
 						throw new Error('Invalid response');
 					}
