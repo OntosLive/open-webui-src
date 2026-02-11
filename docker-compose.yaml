@@ -1,5 +1,6 @@
 services:
   ollama:
+    profiles: ["full"]
     volumes:
       - ollama:/root/.ollama
     container_name: ollama
@@ -9,15 +10,10 @@ services:
     image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
 
   open-webui:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
     container_name: open-webui
     volumes:
       - /home/ontoslive/ontos_data/openwebui-data:/app/backend/data
-    depends_on:
-      - ollama
     ports:
       - ${OPEN_WEBUI_PORT-3000}:8080
     environment:

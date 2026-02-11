@@ -1,0 +1,4 @@
+services:
+  open-webui:
+    volumes:
+      - ./backend/open_webui:/app/backend/open_webui
