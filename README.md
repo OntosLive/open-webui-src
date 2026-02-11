@@ -25,6 +25,11 @@ Passionate about open-source AI? [Join our team →](https://careers.openwebui.c
 
 For more information, be sure to check out our [Open WebUI Documentation](https://docs.openwebui.com/).
 
+## Governance Toggle (OntoGit)
+
+- `WEBUI_DISABLE_SIGNUP=true` disables public `/api/v1/auths/signup` and returns `403 {"error":"signup_disabled"}`.
+- Keep it unset or `false` to preserve normal signup behavior.
+
 ## Key Features of Open WebUI ⭐
 
 - 🚀 **Effortless Setup**: Install seamlessly using Docker or Kubernetes (kubectl, kustomize or helm) for a hassle-free experience with support for both `:ollama` and `:cuda` tagged images.

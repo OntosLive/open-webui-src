@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import Response
-import os, json, urllib.request, urllib.error, logging, time
+import os, json, urllib.request, urllib.error, logging, time, hmac
 
 from open_webui.utils.auth import get_verified_user
+from open_webui.models.users import Users
+from open_webui.models.groups import Groups
 from open_webui.ontogit.constants import (
     SERVICE_AUTH_ENV,
     SERVICE_AUTH_HEADER,
@@ -36,6 +38,20 @@ def _get_service_secret() -> str | None:
             log.error("ONTOS service auth secret is not configured; ontogit endpoints disabled")
         return None
     return secret
+
+
+def _service_auth_ok(request: Request) -> bool:
+    secret = _get_service_secret()
+    if not secret:
+        return False
+    provided = (request.headers.get(SERVICE_AUTH_HEADER) or "").strip()
+    if not provided:
+        _warn_once("service_auth_missing", WARN_SERVICE_AUTH)
+        return False
+    if not hmac.compare_digest(provided, secret):
+        _warn_once("service_auth_mismatch", WARN_SERVICE_AUTH)
+        return False
+    return True
 
 
 def _forward(payload: dict, path: str, user_id: str | None):
@@ -86,6 +102,44 @@ def _forward(payload: dict, path: str, user_id: str | None):
         return resp
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OntoGit upstream error: {type(e).__name__}: {e}")
+
+
+@router.get("/ontogit/user_role")
+async def ontogit_user_role(request: Request):
+    if not _service_auth_ok(request):
+        return Response(status_code=401)
+
+    user_id = (request.headers.get("X-OpenWebUI-User-Id") or "").strip()
+    if not user_id:
+        raise HTTPException(status_code=400, detail="missing_user_id")
+
+    user = Users.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="not_found")
+
+    groups = Groups.get_groups_by_member_id(user_id) or []
+    group_names = [str(g.name or "").strip() for g in groups if str(g.name or "").strip()]
+    group_names_set = set(group_names)
+
+    role_admin = (os.environ.get("ONTOGIT_ROLE_GROUP_ADMIN", "admin") or "admin").strip()
+    role_pro = (os.environ.get("ONTOGIT_ROLE_GROUP_PRO", "pro") or "pro").strip()
+    role_default = (os.environ.get("ONTOGIT_ROLE_DEFAULT", "basic") or "basic").strip()
+
+    role = role_default
+    if role_admin in group_names_set:
+        role = "admin"
+    elif role_pro in group_names_set:
+        role = "pro"
+    else:
+        role = "basic" if role_default not in ("admin", "pro", "basic") else role_default
+
+    return {
+        "user_id": user_id,
+        "role": role,
+        "groups": group_names,
+        "ts": int(time.time()),
+    }
+
 
 @router.post("/ontogit_commit")
 async def ontogit_commit(payload: dict, request: Request, user=Depends(get_verified_user)):

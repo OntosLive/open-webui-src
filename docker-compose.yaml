@@ -21,6 +21,10 @@ services:
       - 'OPENAI_API_BASE_URL=http://header-injector:8089'
       - 'WEBUI_SECRET_KEY='
       - 'ONTOS_SERVICE_AUTH_SECRET=${ONTOS_SERVICE_AUTH_SECRET}'
+      - 'WEBUI_DISABLE_SIGNUP=${WEBUI_DISABLE_SIGNUP:-false}'
+      - 'ONTOGIT_ROLE_GROUP_ADMIN=${ONTOGIT_ROLE_GROUP_ADMIN:-admin}'
+      - 'ONTOGIT_ROLE_GROUP_PRO=${ONTOGIT_ROLE_GROUP_PRO:-pro}'
+      - 'ONTOGIT_ROLE_DEFAULT=${ONTOGIT_ROLE_DEFAULT:-basic}'
     extra_hosts:
       - host.docker.internal:host-gateway
     networks:

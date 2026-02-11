@@ -3,6 +3,7 @@ import uuid
 import time
 import datetime
 import logging
+import os
 from aiohttp import ClientSession
 import urllib
 
@@ -641,6 +642,12 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
 
 @router.post("/signup", response_model=SessionUserResponse)
 async def signup(request: Request, response: Response, form_data: SignupForm):
+    if os.environ.get("WEBUI_DISABLE_SIGNUP", "false").lower() in ("1", "true", "yes", "on"):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"error": "signup_disabled"},
+        )
+
     has_users = Users.has_users()
 
     if WEBUI_AUTH:
