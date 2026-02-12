@@ -33,6 +33,18 @@
 	let durationCounter = null;
 
 	let transcription = '';
+	const DOWNLOAD_TIMEOUT_MS = 60000;
+
+	const downloadLocalBackup = (blob: Blob, filename: string) => {
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		anchor.href = url;
+		anchor.download = filename;
+		document.body.appendChild(anchor);
+		anchor.click();
+		anchor.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	};
 
 	const startDurationCounter = () => {
 		durationCounter = setInterval(() => {
@@ -148,14 +160,39 @@
 
 		await tick();
 		const file = blobToFile(audioBlob, `Recording-${dayjs().format('L LT')}.${ext}`);
+		const backupFilename = file.name || `Recording-${dayjs().format('L LT')}.webm`;
+		let backupTriggered = false;
 
-		const recordingInfo = await uploadRecording(localStorage.token, file).catch((error) => {
-			toast.error(`${error}`);
-			return null;
-		});
+		const triggerBackup = (message: string) => {
+			if (backupTriggered) return;
+			backupTriggered = true;
+			downloadLocalBackup(audioBlob, backupFilename);
+			toast.error(message, {
+				action: {
+					label: 'Download local backup',
+					onClick: () => downloadLocalBackup(audioBlob, backupFilename)
+				}
+			});
+		};
+
+		const abortController = new AbortController();
+		const timeoutId = setTimeout(() => {
+			abortController.abort();
+			triggerBackup('Upload timed out. Local backup downloaded.');
+		}, DOWNLOAD_TIMEOUT_MS);
+
+		let recordingInfo = null;
+		try {
+			recordingInfo = await uploadRecording(localStorage.token, file, {
+				signal: abortController.signal
+			});
+		} catch (error) {
+			triggerBackup(`Upload failed. ${error}`);
+		} finally {
+			clearTimeout(timeoutId);
+		}
 
 		if (!recordingInfo) {
-			toast.error('Failed to save recording.');
 			return;
 		}
 

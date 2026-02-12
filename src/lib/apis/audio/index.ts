@@ -105,7 +105,11 @@ type RecordingInfo = {
 	created_at: string;
 };
 
-export const uploadRecording = async (token: string, file: File): Promise<RecordingInfo> => {
+export const uploadRecording = async (
+	token: string,
+	file: File,
+	options?: { signal?: AbortSignal }
+): Promise<RecordingInfo> => {
 	const data = new FormData();
 	data.append('file', file);
 
@@ -116,14 +120,29 @@ export const uploadRecording = async (token: string, file: File): Promise<Record
 			Accept: 'application/json',
 			authorization: `Bearer ${token}`
 		},
-		body: data
+		body: data,
+		signal: options?.signal
 	})
 		.then(async (res) => {
-			if (!res.ok) throw await res.json();
+			if (!res.ok) {
+				if (res.status === 413) {
+					throw {
+						detail:
+							'Upload too large (HTTP 413). Increase reverse-proxy limits (e.g. nginx client_max_body_size) or server upload size.'
+					};
+				}
+
+				try {
+					throw await res.json();
+				} catch {
+					const text = await res.text();
+					throw { detail: text || 'Upload failed.' };
+				}
+			}
 			return res.json();
 		})
 		.catch((err) => {
-			error = err.detail;
+			error = err?.detail || err?.message || 'Upload failed.';
 			console.error(err);
 			return null;
 		});

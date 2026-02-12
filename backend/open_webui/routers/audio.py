@@ -193,6 +193,12 @@ def save_recording_bytes(
 
     size_bytes = os.path.getsize(recording_path)
     created_at = datetime.utcnow().isoformat() + "Z"
+    log.info(
+        "recording_saved: %s size=%s path=%s",
+        recording_id,
+        size_bytes,
+        recording_path,
+    )
     return {
         "id": recording_id,
         "filename": os.path.basename(recording_path),
