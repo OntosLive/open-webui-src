@@ -3659,25 +3659,58 @@ WHISPER_LANGUAGE_AUTO_IF_RU = os.getenv("WHISPER_LANGUAGE_AUTO_IF_RU", "").lower
     "yes",
     "on",
 )
-try:
-    WHISPER_BEAM_SIZE = int(os.environ.get("WHISPER_BEAM_SIZE", "8"))
-except ValueError:
-    WHISPER_BEAM_SIZE = 8
 
-try:
-    WHISPER_TEMPERATURE = float(os.environ.get("WHISPER_TEMPERATURE", "0"))
-except ValueError:
-    WHISPER_TEMPERATURE = 0.0
 
-_whisper_best_of_raw = os.environ.get("WHISPER_BEST_OF", "5").strip()
-if _whisper_best_of_raw == "":
-    WHISPER_BEST_OF = None
-else:
+def _parse_int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
     try:
-        _whisper_best_of = int(_whisper_best_of_raw)
-        WHISPER_BEST_OF = _whisper_best_of if _whisper_best_of > 0 else None
+        return int(raw)
     except ValueError:
-        WHISPER_BEST_OF = 5
+        return default
+
+
+def _parse_float_env(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _parse_best_of_env(name: str, default: int) -> Optional[int]:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    if raw.strip() == "":
+        return None
+    try:
+        value = int(raw)
+        return value if value > 0 else None
+    except ValueError:
+        return default
+
+
+WHISPER_BEAM_SIZE = PersistentConfig(
+    "WHISPER_BEAM_SIZE",
+    "audio.stt.whisper_beam_size",
+    _parse_int_env("WHISPER_BEAM_SIZE", 8),
+)
+
+WHISPER_TEMPERATURE = PersistentConfig(
+    "WHISPER_TEMPERATURE",
+    "audio.stt.whisper_temperature",
+    _parse_float_env("WHISPER_TEMPERATURE", 0.0),
+)
+
+WHISPER_BEST_OF = PersistentConfig(
+    "WHISPER_BEST_OF",
+    "audio.stt.whisper_best_of",
+    _parse_best_of_env("WHISPER_BEST_OF", 5),
+)
 
 # Add Deepgram configuration
 DEEPGRAM_API_KEY = PersistentConfig(
