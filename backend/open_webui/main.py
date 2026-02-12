@@ -614,6 +614,13 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(periodic_usage_pool_cleanup())
 
+    try:
+        removed = audio.cleanup_recordings()
+        if removed:
+            log.info("Removed %s expired audio recordings on startup", removed)
+    except Exception:
+        log.exception("Failed to cleanup expired audio recordings on startup")
+
     if app.state.config.ENABLE_BASE_MODELS_CACHE:
         await get_all_models(
             Request(

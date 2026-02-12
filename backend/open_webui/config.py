@@ -3694,6 +3694,11 @@ def _parse_best_of_env(name: str, default: int) -> Optional[int]:
         return default
 
 
+def _parse_positive_int_env(name: str, default: int) -> int:
+    value = _parse_int_env(name, default)
+    return value if value > 0 else default
+
+
 WHISPER_BEAM_SIZE = PersistentConfig(
     "WHISPER_BEAM_SIZE",
     "audio.stt.whisper_beam_size",
@@ -3716,6 +3721,10 @@ WHISPER_INITIAL_PROMPT = PersistentConfig(
     "WHISPER_INITIAL_PROMPT",
     "audio.stt.whisper_initial_prompt",
     os.getenv("WHISPER_INITIAL_PROMPT", ""),
+)
+
+AUDIO_RECORDINGS_RETENTION_DAYS = _parse_positive_int_env(
+    "AUDIO_RECORDINGS_RETENTION_DAYS", 14
 )
 
 # Add Deepgram configuration

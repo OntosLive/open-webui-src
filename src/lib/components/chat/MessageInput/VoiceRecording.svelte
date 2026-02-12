@@ -4,7 +4,7 @@
 	import { config, settings } from '$lib/stores';
 	import { blobToFile, calculateSHA256, extractCurlyBraceWords } from '$lib/utils';
 
-	import { transcribeAudio } from '$lib/apis/audio';
+	import { transcribeRecording, uploadRecording } from '$lib/apis/audio';
 	import XMark from '$lib/components/icons/XMark.svelte';
 
 	import dayjs from 'dayjs';
@@ -149,18 +149,28 @@
 		await tick();
 		const file = blobToFile(audioBlob, `Recording-${dayjs().format('L LT')}.${ext}`);
 
+		const recordingInfo = await uploadRecording(localStorage.token, file).catch((error) => {
+			toast.error(`${error}`);
+			return null;
+		});
+
+		if (!recordingInfo) {
+			toast.error('Failed to save recording.');
+			return;
+		}
+
 		if (transcribe) {
 			if ($config.audio.stt.engine === 'web' || ($settings?.audio?.stt?.engine ?? '') === 'web') {
 				// with web stt, we don't need to send the file to the server
 				return;
 			}
 
-			const res = await transcribeAudio(
+			const res = await transcribeRecording(
 				localStorage.token,
-				file,
+				recordingInfo.id,
 				$settings?.audio?.stt?.language
 			).catch((error) => {
-				toast.error(`${error}`);
+				toast.error(`Recording saved as ${recordingInfo.id}, you can retry STT`);
 				return null;
 			});
 
@@ -171,7 +181,8 @@
 		} else {
 			onConfirm({
 				file: file,
-				blob: audioBlob
+				blob: audioBlob,
+				recording_id: recordingInfo.id
 			});
 		}
 	};

@@ -97,6 +97,80 @@ export const transcribeAudio = async (token: string, file: File, language?: stri
 	return res;
 };
 
+type RecordingInfo = {
+	id: string;
+	filename: string;
+	path: string;
+	size_bytes: number;
+	created_at: string;
+};
+
+export const uploadRecording = async (token: string, file: File): Promise<RecordingInfo> => {
+	const data = new FormData();
+	data.append('file', file);
+
+	let error = null;
+	const res = await fetch(`${AUDIO_API_BASE_URL}/recordings`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: data
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.catch((err) => {
+			error = err.detail;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const transcribeRecording = async (
+	token: string,
+	recordingId: string,
+	language?: string
+) => {
+	const data = new FormData();
+	if (language) {
+		data.append('language', language);
+	}
+
+	let error = null;
+	const res = await fetch(`${AUDIO_API_BASE_URL}/recordings/${recordingId}/transcribe`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: data
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.catch((err) => {
+			error = err.detail;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
 export const synthesizeOpenAISpeech = async (
 	token: string = '',
 	speaker: string = 'alloy',

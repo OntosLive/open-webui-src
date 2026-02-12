@@ -6,7 +6,7 @@
 
 	import { blobToFile } from '$lib/utils';
 	import { generateEmoji } from '$lib/apis';
-	import { synthesizeOpenAISpeech, transcribeAudio } from '$lib/apis/audio';
+	import { synthesizeOpenAISpeech, transcribeRecording, uploadRecording } from '$lib/apis/audio';
 
 	import { toast } from 'svelte-sonner';
 
@@ -154,12 +154,22 @@
 		await tick();
 		const file = blobToFile(audioBlob, 'recording.wav');
 
-		const res = await transcribeAudio(
+		const recordingInfo = await uploadRecording(localStorage.token, file).catch((error) => {
+			toast.error(`${error}`);
+			return null;
+		});
+
+		if (!recordingInfo) {
+			toast.error('Failed to save recording.');
+			return null;
+		});
+
+		const res = await transcribeRecording(
 			localStorage.token,
-			file,
+			recordingInfo.id,
 			$settings?.audio?.stt?.language
 		).catch((error) => {
-			toast.error(`${error}`);
+			toast.error(`Recording saved as ${recordingInfo.id}, you can retry STT`);
 			return null;
 		});
 

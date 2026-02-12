@@ -5,6 +5,7 @@ import os
 import uuid
 import html
 import base64
+from datetime import datetime, timedelta
 from functools import lru_cache
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
@@ -43,6 +44,7 @@ from open_webui.config import (
     WHISPER_LANGUAGE,
     WHISPER_LANGUAGE_AUTO_IF_RU,
     ELEVENLABS_API_BASE_URL,
+    AUDIO_RECORDINGS_RETENTION_DAYS,
 )
 
 from open_webui.constants import ERROR_MESSAGES
@@ -67,6 +69,8 @@ log = logging.getLogger(__name__)
 
 SPEECH_CACHE_DIR = CACHE_DIR / "audio" / "speech"
 SPEECH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+RECORDINGS_DIR = CACHE_DIR / "audio" / "recordings"
+RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 ##########################################
@@ -138,6 +142,91 @@ def normalize_stt_language(language: Optional[str]) -> Optional[str]:
         return None
 
     return cleaned
+
+
+def _extension_from_content_type(content_type: Optional[str]) -> Optional[str]:
+    if not content_type:
+        return None
+
+    content_type = content_type.lower()
+    explicit_map = {
+        "audio/webm": "webm",
+        "audio/ogg": "ogg",
+        "audio/mpeg": "mp3",
+        "audio/mp3": "mp3",
+        "audio/wav": "wav",
+        "audio/x-wav": "wav",
+        "audio/mp4": "mp4",
+        "audio/x-m4a": "m4a",
+        "audio/m4a": "m4a",
+    }
+    if content_type in explicit_map:
+        return explicit_map[content_type]
+
+    guessed = mimetypes.guess_extension(content_type)
+    if guessed:
+        return guessed.lstrip(".")
+    return None
+
+
+def _recording_path_for_upload(filename: str, content_type: Optional[str]) -> tuple[str, str]:
+    ext = ""
+    if filename and "." in filename:
+        ext = filename.rsplit(".", 1)[-1].lower()
+
+    if not ext:
+        ext = _extension_from_content_type(content_type) or "webm"
+
+    recording_id = str(uuid.uuid4())
+    recording_filename = f"{recording_id}.{ext}"
+    recording_path = str(RECORDINGS_DIR / recording_filename)
+    return recording_id, recording_path
+
+
+def save_recording_bytes(
+    content: bytes, filename: str, content_type: Optional[str]
+) -> dict:
+    recording_id, recording_path = _recording_path_for_upload(filename, content_type)
+    with open(recording_path, "wb") as f:
+        f.write(content)
+
+    size_bytes = os.path.getsize(recording_path)
+    created_at = datetime.utcnow().isoformat() + "Z"
+    return {
+        "id": recording_id,
+        "filename": os.path.basename(recording_path),
+        "path": recording_path,
+        "size_bytes": size_bytes,
+        "created_at": created_at,
+    }
+
+
+def find_recording_path(recording_id: str) -> Optional[str]:
+    prefix = f"{recording_id}."
+    for name in os.listdir(RECORDINGS_DIR):
+        if name.startswith(prefix):
+            return str(RECORDINGS_DIR / name)
+    return None
+
+
+def cleanup_recordings(retention_days: int = AUDIO_RECORDINGS_RETENTION_DAYS) -> int:
+    if retention_days <= 0:
+        return 0
+
+    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    removed = 0
+    for name in os.listdir(RECORDINGS_DIR):
+        path = RECORDINGS_DIR / name
+        try:
+            if not path.is_file():
+                continue
+            mtime = datetime.utcfromtimestamp(path.stat().st_mtime)
+            if mtime < cutoff:
+                path.unlink()
+                removed += 1
+        except Exception:
+            log.exception("Failed to delete recording %s", path)
+    return removed
 
 
 def set_faster_whisper_model(model: str, auto_update: bool = False):
@@ -1197,18 +1286,9 @@ def transcription(
         )
 
     try:
-        ext = file.filename.split(".")[-1]
-        id = uuid.uuid4()
-
-        filename = f"{id}.{ext}"
         contents = file.file.read()
-
-        file_dir = f"{CACHE_DIR}/audio/transcriptions"
-        os.makedirs(file_dir, exist_ok=True)
-        file_path = f"{file_dir}/{filename}"
-
-        with open(file_path, "wb") as f:
-            f.write(contents)
+        recording_info = save_recording_bytes(contents, file.filename, file.content_type)
+        file_path = recording_info["path"]
 
         try:
             metadata = None
@@ -1236,6 +1316,7 @@ def transcription(
             return {
                 **result,
                 "filename": os.path.basename(file_path),
+                "recording_id": recording_info["id"],
             }
 
         except Exception as e:
@@ -1253,6 +1334,93 @@ def transcription(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ERROR_MESSAGES.DEFAULT(e),
         )
+
+
+@router.post("/recordings")
+def create_recording(
+    request: Request,
+    file: UploadFile = File(...),
+    user=Depends(get_verified_user),
+):
+    supported_types = [
+        "audio/webm",
+        "audio/wav",
+        "audio/ogg",
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/mp4",
+        "audio/x-m4a",
+        "audio/m4a",
+    ]
+    if not strict_match_mime_type(supported_types, file.content_type):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.FILE_NOT_SUPPORTED,
+        )
+
+    try:
+        contents = file.file.read()
+        recording_info = save_recording_bytes(contents, file.filename, file.content_type)
+        return recording_info
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(e),
+        )
+
+
+@router.post("/recordings/{recording_id}/transcribe")
+def transcribe_recording(
+    request: Request,
+    recording_id: str,
+    language: Optional[str] = Form(None),
+    user=Depends(get_verified_user),
+):
+    file_path = find_recording_path(recording_id)
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    try:
+        metadata = None
+        normalized_language = normalize_stt_language(language)
+        if normalized_language:
+            metadata = {"language": normalized_language}
+
+        language_mode = "auto-detect" if normalized_language is None else normalized_language
+        log.info(
+            "STT params: model=%s beam=%s temperature=%s best_of=%s language_mode=%s prompt_enabled=%s"
+            % (
+                request.app.state.config.WHISPER_MODEL,
+                request.app.state.config.WHISPER_BEAM_SIZE,
+                request.app.state.config.WHISPER_TEMPERATURE,
+                request.app.state.config.WHISPER_BEST_OF,
+                language_mode,
+                bool(request.app.state.config.WHISPER_INITIAL_PROMPT),
+            )
+        )
+
+        result = transcribe(request, file_path, metadata, user)
+        return {
+            **result,
+            "filename": os.path.basename(file_path),
+            "recording_id": recording_id,
+        }
+    except Exception as e:
+        log.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(e),
+        )
+
+
+@router.post("/recordings/cleanup")
+def cleanup_recordings_endpoint(user=Depends(get_admin_user)):
+    removed = cleanup_recordings()
+    return {
+        "removed": removed,
+        "retention_days": AUDIO_RECORDINGS_RETENTION_DAYS,
+    }
 
 
 def get_available_models(request: Request) -> list[dict]:
