@@ -3712,6 +3712,12 @@ WHISPER_BEST_OF = PersistentConfig(
     _parse_best_of_env("WHISPER_BEST_OF", 5),
 )
 
+WHISPER_INITIAL_PROMPT = PersistentConfig(
+    "WHISPER_INITIAL_PROMPT",
+    "audio.stt.whisper_initial_prompt",
+    os.getenv("WHISPER_INITIAL_PROMPT", ""),
+)
+
 # Add Deepgram configuration
 DEEPGRAM_API_KEY = PersistentConfig(
     "DEEPGRAM_API_KEY",

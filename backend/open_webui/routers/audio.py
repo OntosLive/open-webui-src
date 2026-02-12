@@ -607,6 +607,9 @@ def transcription_handler(request, file_path, metadata, user=None):
             "vad_filter": request.app.state.config.WHISPER_VAD_FILTER,
             "language": languages[0],
         }
+        initial_prompt = request.app.state.config.WHISPER_INITIAL_PROMPT
+        if initial_prompt:
+            transcribe_kwargs["initial_prompt"] = initial_prompt
         if request.app.state.config.WHISPER_BEST_OF is not None:
             transcribe_kwargs["best_of"] = request.app.state.config.WHISPER_BEST_OF
         segments, info = model.transcribe(
@@ -1217,13 +1220,14 @@ def transcription(
                 "auto-detect" if normalized_language is None else normalized_language
             )
             log.info(
-                "STT params: model=%s beam=%s temperature=%s best_of=%s language_mode=%s"
+                "STT params: model=%s beam=%s temperature=%s best_of=%s language_mode=%s prompt_enabled=%s"
                 % (
                     request.app.state.config.WHISPER_MODEL,
                     request.app.state.config.WHISPER_BEAM_SIZE,
                     request.app.state.config.WHISPER_TEMPERATURE,
                     request.app.state.config.WHISPER_BEST_OF,
                     language_mode,
+                    bool(request.app.state.config.WHISPER_INITIAL_PROMPT),
                 )
             )
 
