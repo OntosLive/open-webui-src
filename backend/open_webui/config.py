@@ -3659,6 +3659,25 @@ WHISPER_LANGUAGE_AUTO_IF_RU = os.getenv("WHISPER_LANGUAGE_AUTO_IF_RU", "").lower
     "yes",
     "on",
 )
+try:
+    WHISPER_BEAM_SIZE = int(os.environ.get("WHISPER_BEAM_SIZE", "8"))
+except ValueError:
+    WHISPER_BEAM_SIZE = 8
+
+try:
+    WHISPER_TEMPERATURE = float(os.environ.get("WHISPER_TEMPERATURE", "0"))
+except ValueError:
+    WHISPER_TEMPERATURE = 0.0
+
+_whisper_best_of_raw = os.environ.get("WHISPER_BEST_OF", "5").strip()
+if _whisper_best_of_raw == "":
+    WHISPER_BEST_OF = None
+else:
+    try:
+        _whisper_best_of = int(_whisper_best_of_raw)
+        WHISPER_BEST_OF = _whisper_best_of if _whisper_best_of > 0 else None
+    except ValueError:
+        WHISPER_BEST_OF = 5
 
 # Add Deepgram configuration
 DEEPGRAM_API_KEY = PersistentConfig(

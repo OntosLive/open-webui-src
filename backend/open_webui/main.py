@@ -216,6 +216,9 @@ from open_webui.config import (
     WHISPER_MODEL,
     WHISPER_VAD_FILTER,
     WHISPER_LANGUAGE,
+    WHISPER_BEAM_SIZE,
+    WHISPER_TEMPERATURE,
+    WHISPER_BEST_OF,
     DEEPGRAM_API_KEY,
     WHISPER_MODEL_AUTO_UPDATE,
     WHISPER_MODEL_DIR,
@@ -1158,6 +1161,9 @@ app.state.config.STT_OPENAI_API_KEY = AUDIO_STT_OPENAI_API_KEY
 
 app.state.config.WHISPER_MODEL = WHISPER_MODEL
 app.state.config.WHISPER_VAD_FILTER = WHISPER_VAD_FILTER
+app.state.config.WHISPER_BEAM_SIZE = WHISPER_BEAM_SIZE
+app.state.config.WHISPER_TEMPERATURE = WHISPER_TEMPERATURE
+app.state.config.WHISPER_BEST_OF = WHISPER_BEST_OF
 app.state.config.DEEPGRAM_API_KEY = DEEPGRAM_API_KEY
 
 app.state.config.AUDIO_STT_AZURE_API_KEY = AUDIO_STT_AZURE_API_KEY
@@ -1424,6 +1430,13 @@ app.include_router(
     evaluations.router, prefix="/api/v1/evaluations", tags=["evaluations"]
 )
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
+if ontogit is not None:
+    if os.environ.get(SERVICE_AUTH_ENV):
+        app.include_router(ontogit.router, prefix="/api/v1")
+    else:
+        log.error("ONTOS service auth secret missing; ontogit routes disabled")
+else:
+    log.warning("OntoGit router not available; skipping")
 
 # SCIM 2.0 API for identity management
 if ENABLE_SCIM:
@@ -2402,11 +2415,3 @@ else:
     log.warning(
         f"Frontend build directory not found at '{FRONTEND_BUILD_DIR}'. Serving API only."
     )
-
-if ontogit is not None:
-    if os.environ.get(SERVICE_AUTH_ENV):
-        app.include_router(ontogit.router, prefix="/api/v1")
-    else:
-        log.error("ONTOS service auth secret missing; ontogit routes disabled")
-else:
-    log.warning("OntoGit router not available; skipping")

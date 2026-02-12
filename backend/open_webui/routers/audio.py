@@ -601,11 +601,17 @@ def transcription_handler(request, file_path, metadata, user=None):
             )
 
         model = request.app.state.faster_whisper_model
+        transcribe_kwargs = {
+            "beam_size": request.app.state.config.WHISPER_BEAM_SIZE,
+            "temperature": request.app.state.config.WHISPER_TEMPERATURE,
+            "vad_filter": request.app.state.config.WHISPER_VAD_FILTER,
+            "language": languages[0],
+        }
+        if request.app.state.config.WHISPER_BEST_OF is not None:
+            transcribe_kwargs["best_of"] = request.app.state.config.WHISPER_BEST_OF
         segments, info = model.transcribe(
             file_path,
-            beam_size=5,
-            vad_filter=request.app.state.config.WHISPER_VAD_FILTER,
-            language=languages[0],
+            **transcribe_kwargs,
         )
         log.info(
             "Detected language '%s' with probability %f"
@@ -1048,13 +1054,19 @@ def transcribe(
 ):
     log.info(f"transcribe: {file_path} {metadata}")
 
-    if is_audio_conversion_required(file_path):
-        file_path = convert_audio_to_mp3(file_path)
-
-    try:
-        file_path = compress_audio(file_path)
-    except Exception as e:
-        log.exception(e)
+    file_size = os.path.getsize(file_path)
+    if file_size > MAX_FILE_SIZE:
+        if is_audio_conversion_required(file_path):
+            file_path = convert_audio_to_mp3(file_path)
+            if not file_path:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Audio conversion failed during compression.",
+                )
+        try:
+            file_path = compress_audio(file_path)
+        except Exception as e:
+            log.exception(e)
 
     # Always produce a list of chunk paths (could be one entry if small)
     try:
@@ -1111,7 +1123,7 @@ def compress_audio(file_path):
         audio = audio.set_frame_rate(16000).set_channels(1)  # Compress audio
 
         compressed_path = os.path.join(file_dir, f"{id}_compressed.mp3")
-        audio.export(compressed_path, format="mp3", bitrate="32k")
+        audio.export(compressed_path, format="mp3", bitrate="64k")
         # log.debug(f"Compressed audio to {compressed_path}")  # Uncomment if log is defined
 
         return compressed_path
@@ -1119,7 +1131,7 @@ def compress_audio(file_path):
         return file_path
 
 
-def split_audio(file_path, max_bytes, format="mp3", bitrate="32k"):
+def split_audio(file_path, max_bytes, format="mp3", bitrate="64k"):
     """
     Splits audio into chunks not exceeding max_bytes.
     Returns a list of chunk file paths. If audio fits, returns list with original path.
@@ -1201,9 +1213,18 @@ def transcription(
             if normalized_language:
                 metadata = {"language": normalized_language}
 
+            language_mode = (
+                "auto-detect" if normalized_language is None else normalized_language
+            )
             log.info(
-                "STT language mode: %s"
-                % ("auto-detect" if normalized_language is None else normalized_language)
+                "STT params: model=%s beam=%s temperature=%s best_of=%s language_mode=%s"
+                % (
+                    request.app.state.config.WHISPER_MODEL,
+                    request.app.state.config.WHISPER_BEAM_SIZE,
+                    request.app.state.config.WHISPER_TEMPERATURE,
+                    request.app.state.config.WHISPER_BEST_OF,
+                    language_mode,
+                )
             )
 
             result = transcribe(request, file_path, metadata, user)
