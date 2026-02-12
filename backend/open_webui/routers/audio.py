@@ -5,6 +5,7 @@ import os
 import uuid
 import html
 import base64
+import shutil
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pydub import AudioSegment
@@ -1145,6 +1146,19 @@ def transcribe(
     request: Request, file_path: str, metadata: Optional[dict] = None, user=None
 ):
     log.info(f"transcribe: {file_path} {metadata}")
+
+    if file_path and os.path.isfile(file_path):
+        try:
+            base = os.path.basename(file_path)
+            if "." in base:
+                recording_id, ext = base.rsplit(".", 1)
+            else:
+                recording_id, ext = base, "webm"
+            recording_path = str(RECORDINGS_DIR / f"{recording_id}.{ext}")
+            if not os.path.exists(recording_path):
+                shutil.copy2(file_path, recording_path)
+        except Exception:
+            log.exception("Failed to persist raw recording for %s", file_path)
 
     file_size = os.path.getsize(file_path)
     if file_size > MAX_FILE_SIZE:
