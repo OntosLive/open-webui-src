@@ -1,4 +1,5 @@
 import { OPENAI_API_BASE_URL, WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+import { handleOntogitLimitHeaders } from '$lib/utils/ontogitWarnings';
 
 export const getOpenAIConfig = async (token: string = '') => {
 	let error = null;
@@ -352,6 +353,10 @@ export const chatCompletion = async (
 		return null;
 	});
 
+	if (res) {
+		handleOntogitLimitHeaders(res);
+	}
+
 	if (error) {
 		throw error;
 	}
@@ -376,6 +381,7 @@ export const generateOpenAIChatCompletion = async (
 		body: JSON.stringify(body)
 	})
 		.then(async (res) => {
+			handleOntogitLimitHeaders(res);
 			if (!res.ok) throw await res.json();
 			return res.json();
 		})
