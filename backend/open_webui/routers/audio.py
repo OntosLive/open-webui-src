@@ -41,6 +41,7 @@ from open_webui.config import (
     WHISPER_MODEL_DIR,
     CACHE_DIR,
     WHISPER_LANGUAGE,
+    WHISPER_LANGUAGE_AUTO_IF_RU,
     ELEVENLABS_API_BASE_URL,
 )
 
@@ -119,6 +120,24 @@ def convert_audio_to_mp3(file_path):
     except Exception as e:
         log.error(f"Error converting audio file: {e}")
         return None
+
+
+def normalize_stt_language(language: Optional[str]) -> Optional[str]:
+    if language is None:
+        return None
+
+    cleaned = language.strip()
+    if not cleaned:
+        return None
+
+    lowered = cleaned.lower()
+    if lowered in {"auto", "detect", "none", "null"}:
+        return None
+
+    if WHISPER_LANGUAGE_AUTO_IF_RU and lowered in {"ru", "ru-ru", "russian"}:
+        return None
+
+    return cleaned
 
 
 def set_faster_whisper_model(model: str, auto_update: bool = False):
@@ -1178,9 +1197,14 @@ def transcription(
 
         try:
             metadata = None
+            normalized_language = normalize_stt_language(language)
+            if normalized_language:
+                metadata = {"language": normalized_language}
 
-            if language:
-                metadata = {"language": language}
+            log.info(
+                "STT language mode: %s"
+                % ("auto-detect" if normalized_language is None else normalized_language)
+            )
 
             result = transcribe(request, file_path, metadata, user)
 
