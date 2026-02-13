@@ -396,6 +396,10 @@ class UserActiveResponse(UserStatus):
     model_config = ConfigDict(extra="allow")
 
 
+class UserDisableForm(BaseModel):
+    disabled: bool = True
+
+
 @router.get("/{user_id}", response_model=UserActiveResponse)
 async def get_user_by_id(user_id: str, user=Depends(get_verified_user)):
     # Check if user_id is a shared chat
@@ -494,6 +498,52 @@ async def get_user_active_status_by_id(user_id: str, user=Depends(get_verified_u
 ############################
 
 
+@router.post("/update/role", response_model=Optional[UserModel])
+async def update_user_role(
+    form_data: UserRoleUpdateForm,
+    session_user=Depends(get_admin_user),
+):
+    try:
+        first_user = Users.get_first_user()
+        if first_user:
+            if form_data.id == first_user.id:
+                if session_user.id != form_data.id or form_data.role != "admin":
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=ERROR_MESSAGES.ACTION_PROHIBITED,
+                    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error checking primary admin status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not verify primary admin status.",
+        )
+
+    if form_data.role not in ["pending", "user", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT("Invalid role"),
+        )
+
+    user = Users.get_user_by_id(form_data.id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.USER_NOT_FOUND,
+        )
+
+    updated_user = Users.update_user_role_by_id(form_data.id, form_data.role)
+    if updated_user:
+        return updated_user
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=ERROR_MESSAGES.DEFAULT(),
+    )
+
+
 @router.post("/{user_id}/update", response_model=Optional[UserModel])
 async def update_user_by_id(
     user_id: str,
@@ -569,6 +619,56 @@ async def update_user_by_id(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=ERROR_MESSAGES.USER_NOT_FOUND,
     )
+
+
+############################
+# DisableUserById
+############################
+
+
+@router.post("/{user_id}/disable", response_model=dict)
+async def disable_user_by_id(
+    user_id: str,
+    form_data: UserDisableForm,
+    user=Depends(get_admin_user),
+):
+    try:
+        first_user = Users.get_first_user()
+        if first_user and user_id == first_user.id and form_data.disabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=ERROR_MESSAGES.ACTION_PROHIBITED,
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error checking primary admin status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not verify primary admin status.",
+        )
+
+    if user.id == user_id and form_data.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ERROR_MESSAGES.ACTION_PROHIBITED,
+        )
+
+    target_user = Users.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.USER_NOT_FOUND,
+        )
+
+    active = not form_data.disabled
+    if not Auths.update_user_active_by_id(user_id, active):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT("Failed to update user status"),
+        )
+
+    return {"id": user_id, "disabled": form_data.disabled}
 
 
 ############################

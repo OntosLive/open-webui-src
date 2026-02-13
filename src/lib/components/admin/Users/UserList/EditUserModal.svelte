@@ -6,7 +6,7 @@
 
 	import { goto } from '$app/navigation';
 
-	import { updateUserById, getUserGroupsById } from '$lib/apis/users';
+	import { updateUserById, getUserGroupsById, setUserDisabled } from '$lib/apis/users';
 
 	import Modal from '$lib/components/common/Modal.svelte';
 	import localizedFormat from 'dayjs/plugin/localizedFormat';
@@ -63,6 +63,16 @@
 			toast.error(`${error}`);
 			return null;
 		});
+	};
+
+	const setDisabledState = async (disabled: boolean) => {
+		const res = await setUserDisabled(localStorage.token, selectedUser.id, disabled).catch((error) => {
+			toast.error(`${error}`);
+			return null;
+		});
+		if (res) {
+			toast.success(disabled ? $i18n.t('User disabled') : $i18n.t('User enabled'));
+		}
 	};
 </script>
 
@@ -209,6 +219,25 @@
 											/>
 										</div>
 									</div>
+
+									{#if _user.id !== sessionUser.id}
+										<div class="flex gap-2 pt-1">
+											<button
+												type="button"
+												class="text-xs px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-850 hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+												on:click={() => setDisabledState(true)}
+											>
+												{$i18n.t('Disable account')}
+											</button>
+											<button
+												type="button"
+												class="text-xs px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-850 hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+												on:click={() => setDisabledState(false)}
+											>
+												{$i18n.t('Enable account')}
+											</button>
+										</div>
+									{/if}
 								</div>
 							</div>
 						</div>

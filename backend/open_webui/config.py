@@ -1138,6 +1138,18 @@ ENABLE_SIGNUP = PersistentConfig(
     ),
 )
 
+INVITE_ONLY_SIGNUP = PersistentConfig(
+    "INVITE_ONLY_SIGNUP",
+    "ui.invite_only_signup",
+    os.environ.get("INVITE_ONLY_SIGNUP", "False").lower() == "true",
+)
+
+INVITE_CODES = PersistentConfig(
+    "INVITE_CODES",
+    "ui.invite_codes",
+    [],
+)
+
 ENABLE_LOGIN_FORM = PersistentConfig(
     "ENABLE_LOGIN_FORM",
     "ui.ENABLE_LOGIN_FORM",

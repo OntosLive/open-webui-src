@@ -72,6 +72,7 @@ class SignupForm(BaseModel):
     email: str
     password: str
     profile_image_url: Optional[str] = "/user.png"
+    invite_code: Optional[str] = None
 
 
 class AddUserForm(SignupForm):
@@ -189,6 +190,15 @@ class AuthsTable:
                     return True
                 else:
                     return False
+        except Exception:
+            return False
+
+    def update_user_active_by_id(self, id: str, active: bool) -> bool:
+        try:
+            with get_db() as db:
+                result = db.query(Auth).filter_by(id=id).update({"active": active})
+                db.commit()
+                return True if result == 1 else False
         except Exception:
             return False
 

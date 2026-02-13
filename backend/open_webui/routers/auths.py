@@ -1,6 +1,7 @@
 import re
 import uuid
 import time
+import secrets
 import datetime
 import logging
 import os
@@ -85,6 +86,31 @@ log = logging.getLogger(__name__)
 signin_rate_limiter = RateLimiter(
     redis_client=get_redis_client(), limit=5 * 3, window=60 * 3
 )
+
+
+def _normalize_invites(raw_invites) -> list[dict]:
+    if not isinstance(raw_invites, list):
+        return []
+
+    invites = []
+    for item in raw_invites:
+        if not isinstance(item, dict):
+            continue
+        code = str(item.get("code", "")).strip()
+        if not code:
+            continue
+        invites.append(
+            {
+                "id": str(item.get("id") or uuid.uuid4()),
+                "code": code,
+                "created_at": int(item.get("created_at") or int(time.time())),
+                "created_by": str(item.get("created_by") or ""),
+                "used_at": item.get("used_at"),
+                "used_by": str(item.get("used_by") or ""),
+                "revoked": bool(item.get("revoked", False)),
+            }
+        )
+    return invites
 
 ############################
 # GetSessionUser
@@ -673,6 +699,32 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
     if Users.get_user_by_email(form_data.email.lower()):
         raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
+    if has_users and request.app.state.config.INVITE_ONLY_SIGNUP:
+        invite_code = str(form_data.invite_code or "").strip()
+        if not invite_code:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invite code is required.",
+            )
+
+        invites = _normalize_invites(request.app.state.config.INVITE_CODES)
+        matched_invite = next(
+            (
+                invite
+                for invite in invites
+                if invite.get("code") == invite_code
+                and not invite.get("revoked", False)
+                and invite.get("used_at") is None
+            ),
+            None,
+        )
+
+        if matched_invite is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid or already used invite code.",
+            )
+
     try:
         try:
             validate_password(form_data.password)
@@ -741,6 +793,14 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
                 request.app.state.config.DEFAULT_GROUP_ID,
                 user.id,
             )
+
+            if has_users and request.app.state.config.INVITE_ONLY_SIGNUP:
+                for invite in invites:
+                    if invite.get("id") == matched_invite.get("id"):
+                        invite["used_at"] = int(time.time())
+                        invite["used_by"] = user.email
+                        break
+                request.app.state.config.INVITE_CODES = invites
 
             return {
                 "token": token,
@@ -938,6 +998,7 @@ async def get_admin_config(request: Request, user=Depends(get_admin_user)):
         "SHOW_ADMIN_DETAILS": request.app.state.config.SHOW_ADMIN_DETAILS,
         "WEBUI_URL": request.app.state.config.WEBUI_URL,
         "ENABLE_SIGNUP": request.app.state.config.ENABLE_SIGNUP,
+        "INVITE_ONLY_SIGNUP": request.app.state.config.INVITE_ONLY_SIGNUP,
         "ENABLE_API_KEYS": request.app.state.config.ENABLE_API_KEYS,
         "ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS": request.app.state.config.ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS,
         "API_KEYS_ALLOWED_ENDPOINTS": request.app.state.config.API_KEYS_ALLOWED_ENDPOINTS,
@@ -962,6 +1023,7 @@ class AdminConfig(BaseModel):
     SHOW_ADMIN_DETAILS: bool
     WEBUI_URL: str
     ENABLE_SIGNUP: bool
+    INVITE_ONLY_SIGNUP: bool = False
     ENABLE_API_KEYS: bool
     ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS: bool
     API_KEYS_ALLOWED_ENDPOINTS: str
@@ -988,6 +1050,7 @@ async def update_admin_config(
     request.app.state.config.SHOW_ADMIN_DETAILS = form_data.SHOW_ADMIN_DETAILS
     request.app.state.config.WEBUI_URL = form_data.WEBUI_URL
     request.app.state.config.ENABLE_SIGNUP = form_data.ENABLE_SIGNUP
+    request.app.state.config.INVITE_ONLY_SIGNUP = form_data.INVITE_ONLY_SIGNUP
 
     request.app.state.config.ENABLE_API_KEYS = form_data.ENABLE_API_KEYS
     request.app.state.config.ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS = (
@@ -1034,6 +1097,7 @@ async def update_admin_config(
         "SHOW_ADMIN_DETAILS": request.app.state.config.SHOW_ADMIN_DETAILS,
         "WEBUI_URL": request.app.state.config.WEBUI_URL,
         "ENABLE_SIGNUP": request.app.state.config.ENABLE_SIGNUP,
+        "INVITE_ONLY_SIGNUP": request.app.state.config.INVITE_ONLY_SIGNUP,
         "ENABLE_API_KEYS": request.app.state.config.ENABLE_API_KEYS,
         "ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS": request.app.state.config.ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS,
         "API_KEYS_ALLOWED_ENDPOINTS": request.app.state.config.API_KEYS_ALLOWED_ENDPOINTS,
@@ -1068,6 +1132,64 @@ class LdapServerConfig(BaseModel):
     certificate_path: Optional[str] = None
     validate_cert: bool = True
     ciphers: Optional[str] = "ALL"
+
+
+class GenerateInviteForm(BaseModel):
+    count: int = 1
+
+
+@router.get("/admin/invites")
+async def list_admin_invites(request: Request, user=Depends(get_admin_user)):
+    invites = _normalize_invites(request.app.state.config.INVITE_CODES)
+    return {"invites": invites}
+
+
+@router.post("/admin/invites/generate")
+async def generate_admin_invites(
+    request: Request, form_data: GenerateInviteForm, user=Depends(get_admin_user)
+):
+    count = max(1, min(20, int(form_data.count or 1)))
+    invites = _normalize_invites(request.app.state.config.INVITE_CODES)
+
+    created = []
+    for _ in range(count):
+        code = f"inv_{secrets.token_urlsafe(18)}"
+        invite = {
+            "id": str(uuid.uuid4()),
+            "code": code,
+            "created_at": int(time.time()),
+            "created_by": user.email,
+            "used_at": None,
+            "used_by": "",
+            "revoked": False,
+        }
+        invites.append(invite)
+        created.append(invite)
+
+    request.app.state.config.INVITE_CODES = invites
+    return {"invites": created}
+
+
+@router.post("/admin/invites/{invite_id}/revoke")
+async def revoke_admin_invite(
+    request: Request, invite_id: str, user=Depends(get_admin_user)
+):
+    invites = _normalize_invites(request.app.state.config.INVITE_CODES)
+    found = False
+    for invite in invites:
+        if invite.get("id") == invite_id:
+            invite["revoked"] = True
+            found = True
+            break
+
+    if not found:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invite code not found.",
+        )
+
+    request.app.state.config.INVITE_CODES = invites
+    return {"id": invite_id, "revoked": True}
 
 
 @router.get("/admin/config/ldap/server", response_model=LdapServerConfig)

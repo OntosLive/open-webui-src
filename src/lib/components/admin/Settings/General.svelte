@@ -4,8 +4,11 @@
 	import { getVersionUpdates, getWebhookUrl, updateWebhookUrl } from '$lib/apis';
 	import {
 		getAdminConfig,
+		getAdminInvites,
+		generateAdminInvites,
 		getLdapConfig,
 		getLdapServer,
+		revokeAdminInvite,
 		updateAdminConfig,
 		updateLdapConfig,
 		updateLdapServer
@@ -32,6 +35,7 @@
 	};
 
 	let adminConfig = null;
+	let invites: any[] = [];
 	let webhookUrl = '';
 	let groups = [];
 
@@ -91,6 +95,35 @@
 		}
 	};
 
+	const loadInvites = async () => {
+		const res = await getAdminInvites(localStorage.token).catch(() => null);
+		invites = res?.invites ?? [];
+	};
+
+	const generateInvite = async () => {
+		const res = await generateAdminInvites(localStorage.token, 1).catch((error) => {
+			toast.error(`${error}`);
+			return null;
+		});
+		if (!res?.invites?.[0]?.code) {
+			return;
+		}
+		const code = res.invites[0].code;
+		await navigator.clipboard?.writeText(code).catch(() => null);
+		toast.success($i18n.t('Invite created and copied to clipboard'));
+		await loadInvites();
+	};
+
+	const revokeInvite = async (inviteId: string) => {
+		const res = await revokeAdminInvite(localStorage.token, inviteId).catch((error) => {
+			toast.error(`${error}`);
+			return null;
+		});
+		if (res?.revoked) {
+			await loadInvites();
+		}
+	};
+
 	onMount(async () => {
 		if ($config?.features?.enable_version_update_check) {
 			checkForVersionUpdates();
@@ -99,6 +132,10 @@
 		await Promise.all([
 			(async () => {
 				adminConfig = await getAdminConfig(localStorage.token);
+				adminConfig = {
+					...adminConfig,
+					INVITE_ONLY_SIGNUP: adminConfig?.INVITE_ONLY_SIGNUP ?? false
+				};
 			})(),
 
 			(async () => {
@@ -114,6 +151,7 @@
 
 		const ldapConfig = await getLdapConfig(localStorage.token);
 		ENABLE_LDAP = ldapConfig.ENABLE_LDAP;
+		await loadInvites();
 	});
 </script>
 
@@ -325,6 +363,57 @@
 
 						<Switch bind:state={adminConfig.ENABLE_SIGNUP} />
 					</div>
+
+					<div class=" mb-2.5 flex w-full justify-between pr-2">
+						<div class=" self-center text-xs font-medium">{$i18n.t('Invite-only Registration')}</div>
+
+						<Switch bind:state={adminConfig.INVITE_ONLY_SIGNUP} />
+					</div>
+
+					{#if adminConfig.INVITE_ONLY_SIGNUP}
+						<div class="mb-2.5">
+							<div class="flex w-full justify-between items-center">
+								<div class="text-xs font-medium">{$i18n.t('Invites')}</div>
+								<button
+									type="button"
+									class="text-xs px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 rounded-lg transition"
+									on:click={generateInvite}
+								>
+									{$i18n.t('Generate invite')}
+								</button>
+							</div>
+
+							{#if invites.length > 0}
+								<div class="mt-2 space-y-1.5 max-h-36 overflow-y-auto">
+									{#each invites as invite}
+										<div
+											class="text-xs p-2 rounded-lg bg-gray-50 dark:bg-gray-850 flex items-center justify-between gap-2"
+										>
+											<div class="truncate">
+												<div class="font-mono">{invite.code}</div>
+												<div class="text-gray-500">
+													{invite.used_at
+														? $i18n.t('Used')
+														: invite.revoked
+															? $i18n.t('Revoked')
+															: $i18n.t('Active')}
+												</div>
+											</div>
+											{#if !invite.revoked && !invite.used_at}
+												<button
+													type="button"
+													class="text-xs underline"
+													on:click={() => revokeInvite(invite.id)}
+												>
+													{$i18n.t('Revoke')}
+												</button>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/if}
 
 					<div class="mb-2.5 flex w-full items-center justify-between pr-2">
 						<div class=" self-center text-xs font-medium">

@@ -33,6 +33,7 @@
 	let email = '';
 	let password = '';
 	let confirmPassword = '';
+	let inviteCode = '';
 
 	let ldapUsername = '';
 
@@ -73,7 +74,13 @@
 			}
 		}
 
-		const sessionUser = await userSignUp(name, email, password, generateInitialsImage(name)).catch(
+		const sessionUser = await userSignUp(
+			name,
+			email,
+			password,
+			generateInitialsImage(name),
+			inviteCode
+		).catch(
 			(error) => {
 				toast.error(`${error}`);
 				return null;
@@ -313,6 +320,23 @@
 													autocomplete="email"
 													name="email"
 													placeholder={$i18n.t('Enter Your Email')}
+													required
+												/>
+											</div>
+										{/if}
+
+										{#if mode === 'signup' && $config?.features?.enable_invite_only_signup}
+											<div class="mb-2">
+												<label for="invite-code" class="text-sm font-medium text-left mb-1 block"
+													>{$i18n.t('Invite Code')}</label
+												>
+												<input
+													bind:value={inviteCode}
+													type="text"
+													id="invite-code"
+													class="my-0.5 w-full text-sm outline-hidden bg-transparent placeholder:text-gray-300 dark:placeholder:text-gray-600"
+													autocomplete="off"
+													placeholder={$i18n.t('Enter your invite code')}
 													required
 												/>
 											</div>

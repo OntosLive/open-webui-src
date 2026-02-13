@@ -361,6 +361,8 @@ from open_webui.config import (
     SHOW_ADMIN_DETAILS,
     JWT_EXPIRES_IN,
     ENABLE_SIGNUP,
+    INVITE_ONLY_SIGNUP,
+    INVITE_CODES,
     ENABLE_LOGIN_FORM,
     ENABLE_API_KEYS,
     ENABLE_API_KEYS_ENDPOINT_RESTRICTIONS,
@@ -758,6 +760,8 @@ app.state.BASE_MODELS = []
 
 app.state.config.WEBUI_URL = WEBUI_URL
 app.state.config.ENABLE_SIGNUP = ENABLE_SIGNUP
+app.state.config.INVITE_ONLY_SIGNUP = INVITE_ONLY_SIGNUP
+app.state.config.INVITE_CODES = INVITE_CODES
 app.state.config.ENABLE_LOGIN_FORM = ENABLE_LOGIN_FORM
 
 app.state.config.ENABLE_API_KEYS = ENABLE_API_KEYS
@@ -1932,6 +1936,7 @@ async def get_app_config(request: Request):
             "enable_ldap": app.state.config.ENABLE_LDAP,
             "enable_api_keys": app.state.config.ENABLE_API_KEYS,
             "enable_signup": app.state.config.ENABLE_SIGNUP,
+            "enable_invite_only_signup": app.state.config.INVITE_ONLY_SIGNUP,
             "enable_login_form": app.state.config.ENABLE_LOGIN_FORM,
             "enable_websocket": ENABLE_WEBSOCKET_SUPPORT,
             "enable_version_update_check": ENABLE_VERSION_UPDATE_CHECK,
