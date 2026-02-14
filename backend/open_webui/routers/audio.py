@@ -42,7 +42,6 @@ from open_webui.config import (
     WHISPER_MODEL_AUTO_UPDATE,
     WHISPER_MODEL_DIR,
     CACHE_DIR,
-    WHISPER_LANGUAGE,
     WHISPER_LANGUAGE_AUTO_IF_RU,
     ELEVENLABS_API_BASE_URL,
     AUDIO_RECORDINGS_RETENTION_DAYS,
@@ -72,6 +71,108 @@ SPEECH_CACHE_DIR = CACHE_DIR / "audio" / "speech"
 SPEECH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 RECORDINGS_DIR = CACHE_DIR / "audio" / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _env_override_str(name: str) -> Optional[str]:
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    raw = raw.strip()
+    return raw if raw else None
+
+
+def _env_override_int(name: str) -> Optional[int]:
+    raw = _env_override_str(name)
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _env_override_float(name: str) -> Optional[float]:
+    raw = _env_override_str(name)
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _env_override_best_of(name: str) -> tuple[bool, Optional[int]]:
+    raw = os.getenv(name)
+    if raw is None:
+        return False, None
+    if raw.strip() == "":
+        return True, None
+    try:
+        value = int(raw)
+        return True, value if value > 0 else None
+    except ValueError:
+        return False, None
+
+
+def _normalize_env_language(raw: str) -> str:
+    normalized = normalize_stt_language(raw)
+    return normalized if normalized else raw.lower()
+
+
+def _get_effective_whisper_params(
+    request: Request, normalized_language: Optional[str]
+) -> dict:
+    model_override = _env_override_str("WHISPER_MODEL")
+    model = model_override or request.app.state.config.WHISPER_MODEL
+
+    beam_override = _env_override_int("WHISPER_BEAM_SIZE")
+    beam_size = (
+        beam_override
+        if beam_override is not None
+        else request.app.state.config.WHISPER_BEAM_SIZE
+    )
+
+    temperature_override = _env_override_float("WHISPER_TEMPERATURE")
+    temperature = (
+        temperature_override
+        if temperature_override is not None
+        else request.app.state.config.WHISPER_TEMPERATURE
+    )
+
+    best_of_override, best_of_env = _env_override_best_of("WHISPER_BEST_OF")
+    best_of = (
+        best_of_env
+        if best_of_override
+        else request.app.state.config.WHISPER_BEST_OF
+    )
+
+    language_override = _env_override_str("WHISPER_LANGUAGE")
+    if language_override:
+        language = _normalize_env_language(language_override)
+    else:
+        language = normalized_language
+
+    language_mode = "auto-detect" if language is None else language
+
+    return {
+        "model": model,
+        "beam_size": beam_size,
+        "temperature": temperature,
+        "best_of": best_of,
+        "language": language,
+        "language_mode": language_mode,
+    }
+
+
+def _ensure_faster_whisper_model(
+    request: Request, model_name: str, auto_update: bool = False
+) -> None:
+    current_name = getattr(request.app.state, "faster_whisper_model_name", None)
+    if request.app.state.faster_whisper_model is None or current_name != model_name:
+        request.app.state.faster_whisper_model = set_faster_whisper_model(
+            model_name, auto_update
+        )
+        request.app.state.faster_whisper_model_name = model_name
 
 
 ##########################################
@@ -386,8 +487,11 @@ async def update_audio_config(
     )
 
     if request.app.state.config.STT_ENGINE == "":
-        request.app.state.faster_whisper_model = set_faster_whisper_model(
-            form_data.stt.WHISPER_MODEL, WHISPER_MODEL_AUTO_UPDATE
+        effective_model = (
+            _env_override_str("WHISPER_MODEL") or form_data.stt.WHISPER_MODEL
+        )
+        _ensure_faster_whisper_model(
+            request, effective_model, WHISPER_MODEL_AUTO_UPDATE
         )
     else:
         request.app.state.faster_whisper_model = None
@@ -685,29 +789,28 @@ def transcription_handler(request, file_path, metadata, user=None):
 
     metadata = metadata or {}
 
+    normalized_language = metadata.get("language", None)
+    effective = _get_effective_whisper_params(request, normalized_language)
     languages = [
-        metadata.get("language", None) if not WHISPER_LANGUAGE else WHISPER_LANGUAGE,
+        effective["language"],
         None,  # Always fallback to None in case transcription fails
     ]
 
     if request.app.state.config.STT_ENGINE == "":
-        if request.app.state.faster_whisper_model is None:
-            request.app.state.faster_whisper_model = set_faster_whisper_model(
-                request.app.state.config.WHISPER_MODEL
-            )
+        _ensure_faster_whisper_model(request, effective["model"])
 
         model = request.app.state.faster_whisper_model
         transcribe_kwargs = {
-            "beam_size": request.app.state.config.WHISPER_BEAM_SIZE,
-            "temperature": request.app.state.config.WHISPER_TEMPERATURE,
+            "beam_size": effective["beam_size"],
+            "temperature": effective["temperature"],
             "vad_filter": request.app.state.config.WHISPER_VAD_FILTER,
             "language": languages[0],
         }
         initial_prompt = request.app.state.config.WHISPER_INITIAL_PROMPT
         if initial_prompt:
             transcribe_kwargs["initial_prompt"] = initial_prompt
-        if request.app.state.config.WHISPER_BEST_OF is not None:
-            transcribe_kwargs["best_of"] = request.app.state.config.WHISPER_BEST_OF
+        if effective["best_of"] is not None:
+            transcribe_kwargs["best_of"] = effective["best_of"]
         segments, info = model.transcribe(
             file_path,
             **transcribe_kwargs,
@@ -1316,17 +1419,15 @@ def transcription(
             if normalized_language:
                 metadata = {"language": normalized_language}
 
-            language_mode = (
-                "auto-detect" if normalized_language is None else normalized_language
-            )
+            effective = _get_effective_whisper_params(request, normalized_language)
             log.info(
                 "STT params: model=%s beam=%s temperature=%s best_of=%s language_mode=%s prompt_enabled=%s"
                 % (
-                    request.app.state.config.WHISPER_MODEL,
-                    request.app.state.config.WHISPER_BEAM_SIZE,
-                    request.app.state.config.WHISPER_TEMPERATURE,
-                    request.app.state.config.WHISPER_BEST_OF,
-                    language_mode,
+                    effective["model"],
+                    effective["beam_size"],
+                    effective["temperature"],
+                    effective["best_of"],
+                    effective["language_mode"],
                     bool(request.app.state.config.WHISPER_INITIAL_PROMPT),
                 )
             )
@@ -1407,15 +1508,15 @@ def transcribe_recording(
         if normalized_language:
             metadata = {"language": normalized_language}
 
-        language_mode = "auto-detect" if normalized_language is None else normalized_language
+        effective = _get_effective_whisper_params(request, normalized_language)
         log.info(
             "STT params: model=%s beam=%s temperature=%s best_of=%s language_mode=%s prompt_enabled=%s"
             % (
-                request.app.state.config.WHISPER_MODEL,
-                request.app.state.config.WHISPER_BEAM_SIZE,
-                request.app.state.config.WHISPER_TEMPERATURE,
-                request.app.state.config.WHISPER_BEST_OF,
-                language_mode,
+                effective["model"],
+                effective["beam_size"],
+                effective["temperature"],
+                effective["best_of"],
+                effective["language_mode"],
                 bool(request.app.state.config.WHISPER_INITIAL_PROMPT),
             )
         )
