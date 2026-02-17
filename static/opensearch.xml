@@ -1,8 +1,8 @@
 <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/" xmlns:moz="http://www.mozilla.org/2006/browser/search/">
-<ShortName>Open WebUI</ShortName>
-<Description>Search Open WebUI</Description>
+<ShortName>ontos.live</ShortName>
+<Description>search ontos.live — alba</Description>
 <InputEncoding>UTF-8</InputEncoding>
-<Image width="16" height="16" type="image/x-icon">http://localhost:5137/favicon.png</Image>
-<Url type="text/html" method="get" template="http://localhost:5137/?q={searchTerms}"/>
-<moz:SearchForm>http://localhost:5137</moz:SearchForm>
+<Image width="16" height="16" type="image/png">https://alba.ontos.live/static/favicon.png</Image>
+<Url type="text/html" method="get" template="https://alba.ontos.live/?q={searchTerms}"/>
+<moz:SearchForm>https://alba.ontos.live</moz:SearchForm>
 </OpenSearchDescription>

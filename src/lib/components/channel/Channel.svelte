@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
+	import { PORTAL } from '$lib/config/branding';
 	import { Pane, PaneGroup, PaneResizer } from 'paneforge';
 
 	import { onDestroy, onMount, tick } from 'svelte';
@@ -281,12 +282,12 @@
 					} else {
 						return e.name;
 					}
-				}, '')} • Open WebUI</title
-		>
-	{:else}
-		<title>#{channel?.name ?? 'Channel'} • Open WebUI</title>
-	{/if}
-</svelte:head>
+					}, '')} • {PORTAL.name}</title
+			>
+		{:else}
+			<title>#{channel?.name ?? 'Channel'} • {PORTAL.name}</title>
+		{/if}
+	</svelte:head>
 
 <div
 	class="h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar

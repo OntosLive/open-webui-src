@@ -2,6 +2,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Plus from '$lib/components/icons/Plus.svelte';
 	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { PORTAL } from '$lib/config/branding';
 
 	let selected = '';
 </script>
@@ -25,12 +26,12 @@
 					}
 				}}
 			>
-				<img
-					src="{WEBUI_BASE_URL}/static/splash.png"
-					class="size-11 dark:invert p-0.5"
-					alt="logo"
-					draggable="false"
-				/>
+					<img
+						src="{WEBUI_BASE_URL}{PORTAL.faviconPath}"
+						class="size-11 dark:invert p-0.5"
+						alt={PORTAL.name}
+						draggable="false"
+					/>
 			</button>
 		</Tooltip>
 	</div>
@@ -49,12 +50,12 @@
 				selected = '';
 			}}
 		>
-			<img
-				src="{WEBUI_BASE_URL}/static/favicon.png"
-				class="size-10 {selected === '' ? 'rounded-2xl' : 'rounded-full'}"
-				alt="logo"
-				draggable="false"
-			/>
+				<img
+					src="{WEBUI_BASE_URL}{PORTAL.faviconPath}"
+					class="size-10 {selected === '' ? 'rounded-2xl' : 'rounded-full'}"
+					alt={PORTAL.name}
+					draggable="false"
+				/>
 		</button>
 	</div>
 

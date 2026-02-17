@@ -43,6 +43,7 @@
 	} from '$lib/apis/chats';
 	import { createNewFolder, getFolders, updateFolderParentIdById } from '$lib/apis/folders';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+	import { PORTAL } from '$lib/config/branding';
 
 	import ArchivedChatsModal from './ArchivedChatsModal.svelte';
 	import UserMenu from './Sidebar/UserMenu.svelte';
@@ -65,6 +66,7 @@
 	import { slide } from 'svelte/transition';
 	import HotkeyHint from '../common/HotkeyHint.svelte';
 	import { key } from 'vega';
+	import ProjectBadge from './ProjectBadge.svelte';
 
 	const BREAKPOINT = 768;
 
@@ -670,11 +672,11 @@
 						aria-label={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 					>
 						<div class=" self-center flex items-center justify-center size-9">
-							<img
-								src="{WEBUI_BASE_URL}/static/favicon.png"
-								class="sidebar-new-chat-icon size-6 rounded-full group-hover:hidden"
-								alt=""
-							/>
+								<img
+									src="{WEBUI_BASE_URL}{PORTAL.faviconPath}"
+									class="sidebar-new-chat-icon size-6 rounded-full group-hover:hidden"
+									alt={PORTAL.name}
+								/>
 
 							<Sidebar className="size-5 hidden group-hover:flex" />
 						</div>
@@ -867,19 +869,20 @@
 				>
 					<img
 						crossorigin="anonymous"
-						src="{WEBUI_BASE_URL}/static/favicon.png"
+						src="{WEBUI_BASE_URL}{PORTAL.faviconPath}"
 						class="sidebar-new-chat-icon size-6 rounded-full"
-						alt=""
+						alt={PORTAL.name}
 					/>
 				</a>
 
-				<a href="/" class="flex flex-1 px-1.5" on:click={newChatHandler}>
+				<a href="/" class="flex flex-1 px-1.5 items-center gap-2" on:click={newChatHandler}>
 					<div
 						id="sidebar-webui-name"
 						class=" self-center font-medium text-gray-850 dark:text-white font-primary"
 					>
-						{$WEBUI_NAME}
+						{PORTAL.name}
 					</div>
+					<ProjectBadge />
 				</a>
 				<Tooltip
 					content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
