@@ -37,6 +37,9 @@
 	let inviteCode = '';
 
 	let ldapUsername = '';
+	const AUTH_PORTAL_NAME = 'Ontos.Live';
+	const AUTH_WELCOME_LINE = `добро пожаловать в ${AUTH_PORTAL_NAME}`;
+	const AUTH_LOGIN_CTA = 'войти в Alba';
 
 	const setSessionUser = async (sessionUser, redirectPath: string | null = null) => {
 		if (sessionUser) {
@@ -218,9 +221,9 @@
 						<div
 							class="flex items-center justify-center gap-3 text-xl sm:text-2xl text-center font-medium dark:text-gray-200"
 						>
-							<div>
-								{PORTAL.loginCta}
-							</div>
+								<div>
+									{AUTH_LOGIN_CTA}
+								</div>
 
 							<div>
 								<Spinner className="size-5" />
@@ -248,18 +251,28 @@
 									submitHandler();
 								}}
 							>
-								<div class="mb-1">
-									<div class=" text-2xl font-medium">
+									<div class="mb-1">
+										{#if mode === 'signin' || mode === 'ldap'}
+											<div class="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-300">
+												{AUTH_PORTAL_NAME}
+											</div>
+										{/if}
+										<div class=" text-2xl font-medium">
 										{#if $config?.onboarding ?? false}
 											{$i18n.t(`Get started with {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
 										{:else if mode === 'ldap'}
-											{PORTAL.loginCta}
+											{AUTH_LOGIN_CTA}
 										{:else if mode === 'signin'}
-											{PORTAL.loginCta}
+											{AUTH_LOGIN_CTA}
 										{:else}
 											{$i18n.t(`Sign up to {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
 										{/if}
 									</div>
+									{#if mode === 'signin' || mode === 'ldap'}
+										<div class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+											{AUTH_WELCOME_LINE}
+										</div>
+									{/if}
 
 									{#if $config?.onboarding ?? false}
 										<div class="mt-1 text-xs font-medium text-gray-600 dark:text-gray-500">
@@ -387,16 +400,16 @@
 											>
 												{$i18n.t('Authenticate')}
 											</button>
-										{:else}
-											<button
-												class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
-												type="submit"
-											>
-												{mode === 'signin'
-													? PORTAL.loginCta
-													: ($config?.onboarding ?? false)
-														? $i18n.t('Create Admin Account')
-														: $i18n.t('Create Account')}
+											{:else}
+												<button
+													class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
+													type="submit"
+												>
+													{mode === 'signin'
+														? AUTH_LOGIN_CTA
+														: ($config?.onboarding ?? false)
+															? $i18n.t('Create Admin Account')
+															: $i18n.t('Create Account')}
 											</button>
 
 											{#if $config?.features.enable_signup && !($config?.onboarding ?? false)}
@@ -591,20 +604,21 @@
 			</div>
 		</div>
 
-		{#if !$config?.metadata?.auth_logo_position}
-			<div class="fixed m-10 z-50">
-				<div class="flex space-x-2">
-					<div class=" self-center">
-						<img
-							id="logo"
+			{#if !$config?.metadata?.auth_logo_position}
+				<div class="fixed m-10 z-50">
+					<div class="flex items-center space-x-2">
+						<div class=" self-center">
+							<img
+								id="logo"
 							crossorigin="anonymous"
 							src="{WEBUI_BASE_URL}{PORTAL.faviconPath}"
 							class=" w-6 rounded-full"
-							alt=""
-						/>
+								alt=""
+							/>
+						</div>
+						<div class="text-sm font-semibold text-black dark:text-white">{AUTH_PORTAL_NAME}</div>
 					</div>
 				</div>
-			</div>
-		{/if}
+			{/if}
 	{/if}
 </div>
