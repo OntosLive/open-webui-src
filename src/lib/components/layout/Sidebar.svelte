@@ -66,7 +66,6 @@
 	import { slide } from 'svelte/transition';
 	import HotkeyHint from '../common/HotkeyHint.svelte';
 	import { key } from 'vega';
-	import ProjectBadge from './ProjectBadge.svelte';
 
 	const BREAKPOINT = 768;
 
@@ -875,15 +874,14 @@
 					/>
 				</a>
 
-				<a href="/" class="flex flex-1 px-1.5 items-center gap-2" on:click={newChatHandler}>
-					<div
-						id="sidebar-webui-name"
-						class=" self-center font-medium text-gray-850 dark:text-white font-primary"
-					>
-						{PORTAL.name}
-					</div>
-					<ProjectBadge />
-				</a>
+					<a href="/" class="flex flex-1 px-1.5 items-center gap-2" on:click={newChatHandler}>
+						<div
+							id="sidebar-webui-name"
+							class=" self-center font-medium text-gray-850 dark:text-white font-primary"
+						>
+							{PORTAL.name}
+						</div>
+					</a>
 				<Tooltip
 					content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 					placement="bottom"
