@@ -38,8 +38,8 @@
 
 	let ldapUsername = '';
 	const AUTH_PORTAL_NAME = 'Ontos.Live';
-	const AUTH_WELCOME_LINE = `добро пожаловать в ${AUTH_PORTAL_NAME}`;
-	const AUTH_LOGIN_CTA = 'войти в Alba';
+	const AUTH_WELCOME_LINE = `Добро пожаловать в ${AUTH_PORTAL_NAME}`;
+	const AUTH_LOGIN_CTA = 'Войти в Alba';
 
 	const setSessionUser = async (sessionUser, redirectPath: string | null = null) => {
 		if (sessionUser) {
@@ -222,7 +222,7 @@
 							class="flex items-center justify-center gap-3 text-xl sm:text-2xl text-center font-medium dark:text-gray-200"
 						>
 								<div>
-									{AUTH_LOGIN_CTA}
+									{AUTH_PORTAL_NAME}
 								</div>
 
 							<div>
@@ -252,27 +252,7 @@
 								}}
 							>
 									<div class="mb-1">
-										{#if mode === 'signin' || mode === 'ldap'}
-											<div class="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-300">
-												{AUTH_PORTAL_NAME}
-											</div>
-										{/if}
-										<div class=" text-2xl font-medium">
-										{#if $config?.onboarding ?? false}
-											{$i18n.t(`Get started with {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
-										{:else if mode === 'ldap'}
-											{AUTH_LOGIN_CTA}
-										{:else if mode === 'signin'}
-											{AUTH_LOGIN_CTA}
-										{:else}
-											{$i18n.t(`Sign up to {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
-										{/if}
-									</div>
-									{#if mode === 'signin' || mode === 'ldap'}
-										<div class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-											{AUTH_WELCOME_LINE}
-										</div>
-									{/if}
+										<div class="text-2xl font-medium text-center">{AUTH_WELCOME_LINE}</div>
 
 									{#if $config?.onboarding ?? false}
 										<div class="mt-1 text-xs font-medium text-gray-600 dark:text-gray-500">
@@ -393,13 +373,13 @@
 								{/if}
 								<div class="mt-5">
 									{#if $config?.features.enable_login_form || $config?.features.enable_ldap || form}
-										{#if mode === 'ldap'}
-											<button
-												class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
-												type="submit"
-											>
-												{$i18n.t('Authenticate')}
-											</button>
+											{#if mode === 'ldap'}
+												<button
+													class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"
+													type="submit"
+												>
+													{AUTH_LOGIN_CTA}
+												</button>
 											{:else}
 												<button
 													class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-medium text-sm py-2.5"

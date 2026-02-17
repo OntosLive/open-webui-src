@@ -3,7 +3,6 @@
 	import Bolt from '$lib/components/icons/Bolt.svelte';
 	import { onMount, getContext } from 'svelte';
 	import { settings, WEBUI_NAME } from '$lib/stores';
-	import { WEBUI_VERSION } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
@@ -71,15 +70,15 @@
 	{:else}
 		<!-- Keine Vorschläge -->
 
-		<div
-			class="flex w-full {$settings?.landingPageMode === 'chat'
-				? ' -mt-1'
-				: 'text-center items-center justify-center'}  self-start text-gray-600 dark:text-gray-400"
-		>
-			{$WEBUI_NAME} ‧ v{WEBUI_VERSION}
-		</div>
-	{/if}
-</div>
+			<div
+				class="flex w-full {$settings?.landingPageMode === 'chat'
+					? ' -mt-1'
+					: 'text-center items-center justify-center'}  self-start text-gray-600 dark:text-gray-400"
+			>
+				{$WEBUI_NAME}
+			</div>
+		{/if}
+	</div>
 
 <div class="h-40 w-full">
 	{#if filteredPrompts.length > 0}
