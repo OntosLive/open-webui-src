@@ -22,9 +22,11 @@
 		chatId,
 		chatTitle as _chatTitle,
 		chats,
+		config,
 		mobile,
 		pinnedChats,
 		showSidebar,
+		user,
 		currentChatPage,
 		tags,
 		selectedFolder
@@ -54,6 +56,8 @@
 	export let onDragEnd = () => {};
 
 	let chat = null;
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia';
 
 	let mouseOver = false;
 	let draggable = false;
@@ -431,27 +435,28 @@
 		</a>
 	{/if}
 
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
-	<div
-		id="sidebar-chat-item-menu"
-		class="
-        {id === $chatId || confirmEdit
-			? 'from-gray-100 dark:from-gray-900 selected'
-			: selected
-				? 'from-gray-100 dark:from-gray-950 selected'
-				: 'invisible group-hover:visible from-gray-100 dark:from-gray-950'}
-            absolute {className === 'pr-2'
-			? 'right-[8px]'
-			: 'right-1'} top-[4px] py-1 pr-0.5 mr-1.5 pl-5 bg-linear-to-l from-80%
+		{#if !isKelia}
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div
+				id="sidebar-chat-item-menu"
+				class="
+	        {id === $chatId || confirmEdit
+					? 'from-gray-100 dark:from-gray-900 selected'
+					: selected
+						? 'from-gray-100 dark:from-gray-950 selected'
+						: 'invisible group-hover:visible from-gray-100 dark:from-gray-950'}
+	            absolute {className === 'pr-2'
+					? 'right-[8px]'
+					: 'right-1'} top-[4px] py-1 pr-0.5 mr-1.5 pl-5 bg-linear-to-l from-80%
 
-              to-transparent"
-		on:mouseenter={(e) => {
-			mouseOver = true;
-		}}
-		on:mouseleave={(e) => {
-			mouseOver = false;
-		}}
-	>
+	              to-transparent"
+				on:mouseenter={(e) => {
+					mouseOver = true;
+				}}
+				on:mouseleave={(e) => {
+					mouseOver = false;
+				}}
+			>
 		{#if confirmEdit}
 			<div
 				class="flex self-center items-center space-x-1.5 z-10 translate-y-[0.5px] -translate-x-[0.5px]"
@@ -566,5 +571,6 @@
 				{/if}
 			</div>
 		{/if}
+			</div>
+		{/if}
 	</div>
-</div>

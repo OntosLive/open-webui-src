@@ -969,8 +969,8 @@
 							{/if}
 
 							{#if message.done}
-								{#if !readOnly}
-									{#if $user?.role === 'user' ? ($user?.permissions?.chat?.edit ?? true) : true}
+									{#if !isKelia && !readOnly}
+										{#if $user?.role === 'user' ? ($user?.permissions?.chat?.edit ?? true) : true}
 										<Tooltip content={$i18n.t('Edit')} placement="bottom">
 											<button
 												aria-label={$i18n.t('Edit')}
@@ -1029,7 +1029,7 @@
 									</button>
 								</Tooltip>
 
-								{#if $user?.role === 'admin' || ($user?.permissions?.chat?.tts ?? true)}
+									{#if !isKelia && ($user?.role === 'admin' || ($user?.permissions?.chat?.tts ?? true))}
 									<Tooltip content={$i18n.t('Read Aloud')} placement="bottom">
 										<button
 											aria-label={$i18n.t('Read Aloud')}

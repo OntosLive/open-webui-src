@@ -3,7 +3,7 @@
 	import { toast } from 'svelte-sonner';
 	import { tick, getContext, onMount } from 'svelte';
 
-	import { models, settings } from '$lib/stores';
+	import { config, models, settings } from '$lib/stores';
 	import { user as _user } from '$lib/stores';
 	import { copyToClipboard as _copyToClipboard, formatDate } from '$lib/utils';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
@@ -57,6 +57,9 @@
 			message = JSON.parse(JSON.stringify(history.messages[messageId]));
 		}
 	}
+
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $_user?.ui_profile ?? null) === 'kelia';
 
 	const copyToClipboard = async (text) => {
 		const res = await _copyToClipboard(text);
@@ -121,7 +124,7 @@
 	dir={$settings.chatDirection}
 	id="message-{message.id}"
 >
-	{#if !($settings?.chatBubble ?? true)}
+	{#if !isKelia && !($settings?.chatBubble ?? true)}
 		<div class={`shrink-0 ltr:mr-3 rtl:ml-3 mt-1`}>
 			<ProfileImage
 				src={`${WEBUI_API_BASE_URL}/users/${user.id}/profile/image`}
@@ -130,7 +133,7 @@
 		</div>
 	{/if}
 	<div class="flex-auto w-0 max-w-full pl-1">
-		{#if !($settings?.chatBubble ?? true)}
+			{#if !isKelia && !($settings?.chatBubble ?? true)}
 			<div>
 				<Name>
 					{#if message.user}
@@ -165,7 +168,7 @@
 					{/if}
 				</Name>
 			</div>
-		{:else if message.timestamp}
+			{:else if !isKelia && message.timestamp}
 			<div class="flex justify-end pr-2 text-xs">
 				<div
 					class="text-[0.65rem] font-medium first-letter:capitalize mb-0.5 {($settings?.highContrastMode ??
@@ -463,7 +466,7 @@
 							</div>
 						{/if}
 					{/if}
-					{#if !readOnly}
+						{#if !isKelia && !readOnly}
 						<Tooltip content={$i18n.t('Edit')} placement="bottom">
 							<button
 								class="{($settings?.highContrastMode ?? false)

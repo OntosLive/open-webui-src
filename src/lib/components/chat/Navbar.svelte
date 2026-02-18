@@ -189,7 +189,7 @@
 						</Tooltip>
 					{/if}
 
-					{#if shareEnabled && chat && (chat.id || $temporaryChatEnabled)}
+						{#if !isKelia && shareEnabled && chat && (chat.id || $temporaryChatEnabled)}
 						<Menu
 							{chat}
 							{shareEnabled}

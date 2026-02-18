@@ -1123,9 +1123,8 @@
 					</Folder>
 				{/if}
 
-				{#if !isKelia}
-				<Folder
-					id="sidebar-chats"
+					<Folder
+						id="sidebar-chats"
 					className="px-2 mt-0.5"
 					name={$i18n.t('Chats')}
 					chevron={false}
@@ -1278,8 +1277,8 @@
 					<div class=" flex-1 flex flex-col overflow-y-auto scrollbar-hidden">
 						<div class="pt-1.5">
 							{#if $chats}
-								{#each $chats as chat, idx (`chat-${chat?.id ?? idx}`)}
-									{#if idx === 0 || (idx > 0 && chat.time_range !== $chats[idx - 1].time_range)}
+									{#each $chats as chat, idx (`chat-${chat?.id ?? idx}`)}
+										{#if !isKelia && (idx === 0 || (idx > 0 && chat.time_range !== $chats[idx - 1].time_range))}
 										<div
 											class="w-full pl-2.5 text-xs text-gray-500 dark:text-gray-500 font-medium {idx ===
 											0
@@ -1356,8 +1355,7 @@
 							{/if}
 						</div>
 					</div>
-				</Folder>
-				{/if}
+					</Folder>
 			</div>
 
 			{#if !isKelia}
