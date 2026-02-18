@@ -6,7 +6,7 @@
     const existing = splash.querySelector('#logo, #logo-her');
     if (existing) {
       if (existing.tagName === 'IMG') {
-        existing.setAttribute('src', '/static/favicon.png');
+        existing.setAttribute('src', '/static/alba-icon-192.png');
         existing.setAttribute('alt', 'alba');
         existing.style.borderRadius = '9999px';
         existing.style.objectFit = 'cover';
