@@ -2,7 +2,7 @@ export const PORTAL = {
 	name: 'Ontos.Live',
 	title: 'Ontos.Live',
 	loginCta: 'войти в Ontos.Live',
-	faviconPath: '/static/alba-icon-192.png'
+	faviconPath: '/static/alba-favicon-v2.png'
 };
 
 export const PROJECT = {
