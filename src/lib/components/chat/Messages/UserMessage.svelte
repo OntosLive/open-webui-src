@@ -60,6 +60,24 @@
 
 	let isKelia = false;
 	$: isKelia = ($config?.ui_profile ?? $_user?.ui_profile ?? null) === 'kelia';
+	let isOwnMessage = false;
+	$: {
+		const currentUserId = $_user?.id ?? user?.id ?? null;
+		const currentUserName = $_user?.name ?? user?.name ?? null;
+
+		const messageUserId = message?.user?.id ?? message?.user_id ?? null;
+		const messageUserName =
+			typeof message?.user === 'string' ? message?.user : message?.user?.name ?? null;
+
+		if (messageUserId && currentUserId) {
+			isOwnMessage = messageUserId === currentUserId;
+		} else if (messageUserName && currentUserName) {
+			isOwnMessage = messageUserName === currentUserName;
+		} else {
+			// Chat user messages are normally authored by the active user.
+			isOwnMessage = true;
+		}
+	}
 
 	const copyToClipboard = async (text) => {
 		const res = await _copyToClipboard(text);
@@ -466,9 +484,9 @@
 							</div>
 						{/if}
 					{/if}
-						{#if !isKelia && !readOnly}
-						<Tooltip content={$i18n.t('Edit')} placement="bottom">
-							<button
+						{#if !readOnly && (!isKelia || isOwnMessage)}
+							<Tooltip content={$i18n.t('Edit')} placement="bottom">
+								<button
 								class="{($settings?.highContrastMode ?? false)
 									? ''
 									: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition edit-user-message-button"

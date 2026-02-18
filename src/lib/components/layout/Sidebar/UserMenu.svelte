@@ -37,10 +37,14 @@
 
 	export let profile = false;
 	export let help = false;
+	export let keliaMode = false;
 
 	export let className = 'max-w-[240px]';
 
 	export let showActiveUsers = true;
+
+	let isKelia = false;
+	$: isKelia = keliaMode || (($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia');
 
 	let showUserStatusModal = false;
 
@@ -62,8 +66,12 @@
 	const handleDropdownChange = (state: boolean) => {
 		dispatch('change', state);
 
-		// Fetch usage info when dropdown opens, if user has permission
-		if (state && ($config?.features?.enable_public_active_users_count || role === 'admin')) {
+		// Fetch usage info only for non-Kelia UI.
+		if (
+			state &&
+			!isKelia &&
+			($config?.features?.enable_public_active_users_count || role === 'admin')
+		) {
 			getUsageInfo();
 		}
 	};
@@ -91,7 +99,7 @@
 			align="end"
 			transition={(e) => fade(e, { duration: 100 })}
 		>
-			{#if profile}
+			{#if profile && !isKelia}
 				<div class=" flex gap-3.5 w-full p-2.5 items-center">
 					<div class=" items-center flex shrink-0">
 						<img
@@ -222,27 +230,29 @@
 				<div class=" self-center truncate">{$i18n.t('Settings')}</div>
 			</DropdownMenu.Item>
 
-			<DropdownMenu.Item
-				class="flex rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
-				on:click={async () => {
-					show = false;
+			{#if !isKelia}
+				<DropdownMenu.Item
+					class="flex rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
+					on:click={async () => {
+						show = false;
 
-					dispatch('show', 'archived-chat');
+						dispatch('show', 'archived-chat');
 
-					if ($mobile) {
-						await tick();
+						if ($mobile) {
+							await tick();
 
-						showSidebar.set(false);
-					}
-				}}
-			>
-				<div class=" self-center mr-3">
-					<ArchiveBox className="size-5" strokeWidth="1.5" />
-				</div>
-				<div class=" self-center truncate">{$i18n.t('Archived Chats')}</div>
-			</DropdownMenu.Item>
+							showSidebar.set(false);
+						}
+					}}
+				>
+					<div class=" self-center mr-3">
+						<ArchiveBox className="size-5" strokeWidth="1.5" />
+					</div>
+					<div class=" self-center truncate">{$i18n.t('Archived Chats')}</div>
+				</DropdownMenu.Item>
+			{/if}
 
-			{#if role === 'admin'}
+			{#if role === 'admin' && !isKelia}
 				<DropdownMenu.Item
 					as="a"
 					href="/playground"
@@ -279,7 +289,7 @@
 				</DropdownMenu.Item>
 			{/if}
 
-			{#if help}
+			{#if help && !isKelia}
 				<hr class=" border-gray-50/30 dark:border-gray-800/30 my-1 p-0" />
 
 				<!-- {$i18n.t('Help')} -->
@@ -352,7 +362,7 @@
 				<div class=" self-center truncate">{$i18n.t('Sign Out')}</div>
 			</DropdownMenu.Item>
 
-			{#if showActiveUsers && ($config?.features?.enable_public_active_users_count || role === 'admin') && usage}
+			{#if !isKelia && showActiveUsers && ($config?.features?.enable_public_active_users_count || role === 'admin') && usage}
 				{#if usage?.user_count}
 					<hr class=" border-gray-50/30 dark:border-gray-800/30 my-1 p-0" />
 

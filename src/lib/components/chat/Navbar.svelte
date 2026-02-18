@@ -121,7 +121,7 @@
 				<div class="self-start flex flex-none items-center text-gray-600 dark:text-gray-400">
 					<!-- <div class="md:hidden flex self-center w-[1px] h-5 mx-2 bg-gray-300 dark:bg-stone-700" /> -->
 
-					{#if $user?.role === 'user' ? ($user?.permissions?.chat?.temporary ?? true) && !($user?.permissions?.chat?.temporary_enforced ?? false) : true}
+						{#if !isKelia && ($user?.role === 'user' ? ($user?.permissions?.chat?.temporary ?? true) && !($user?.permissions?.chat?.temporary_enforced ?? false) : true)}
 						{#if !chat?.id}
 							<Tooltip content={$i18n.t(`Temporary Chat`)}>
 								<button
@@ -171,7 +171,7 @@
 						{/if}
 					{/if}
 
-					{#if $mobile && !$temporaryChatEnabled && chat && chat.id}
+						{#if !isKelia && $mobile && !$temporaryChatEnabled && chat && chat.id}
 						<Tooltip content={$i18n.t('New Chat')}>
 							<button
 								class=" flex {$showSidebar
@@ -212,7 +212,7 @@
 						</Menu>
 					{/if}
 
-					{#if $user?.role === 'admin' || ($user?.permissions.chat?.controls ?? true)}
+						{#if !isKelia && ($user?.role === 'admin' || ($user?.permissions.chat?.controls ?? true))}
 						<Tooltip content={$i18n.t('Controls')}>
 							<button
 								class=" flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
@@ -228,7 +228,7 @@
 						</Tooltip>
 					{/if}
 
-					{#if $user !== undefined && $user !== null}
+						{#if !isKelia && $user !== undefined && $user !== null}
 						<UserMenu
 							className="max-w-[240px]"
 							role={$user?.role}

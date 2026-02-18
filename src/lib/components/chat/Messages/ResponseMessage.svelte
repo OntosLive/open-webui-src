@@ -1332,7 +1332,7 @@
 										{/if}
 									{/if}
 
-									{#if isLastMessage && ($user?.role === 'admin' || ($user?.permissions?.chat?.continue_response ?? true))}
+									{#if !isKelia && isLastMessage && ($user?.role === 'admin' || ($user?.permissions?.chat?.continue_response ?? true))}
 										<Tooltip content={$i18n.t('Continue Response')} placement="bottom">
 											<button
 												aria-label={$i18n.t('Continue Response')}
@@ -1369,7 +1369,7 @@
 										</Tooltip>
 									{/if}
 
-									{#if $user?.role === 'admin' || ($user?.permissions?.chat?.regenerate_response ?? true)}
+									{#if !isKelia && ($user?.role === 'admin' || ($user?.permissions?.chat?.regenerate_response ?? true))}
 										{#if $settings?.regenerateMenu ?? true}
 											<button
 												type="button"
@@ -1480,7 +1480,7 @@
 										{/if}
 									{/if}
 
-									{#if $user?.role === 'admin' || ($user?.permissions?.chat?.delete_message ?? true)}
+										{#if !isKelia && ($user?.role === 'admin' || ($user?.permissions?.chat?.delete_message ?? true))}
 										{#if siblings.length > 1}
 											<Tooltip content={$i18n.t('Delete')} placement="bottom">
 												<button
@@ -1514,8 +1514,9 @@
 										{/if}
 									{/if}
 
-									{#each model?.actions ?? [] as action}
-										<Tooltip content={action.name} placement="bottom">
+										{#if !isKelia}
+										{#each model?.actions ?? [] as action}
+											<Tooltip content={action.name} placement="bottom">
 											<button
 												type="button"
 												aria-label={action.name}
@@ -1541,11 +1542,12 @@
 													<Sparkles strokeWidth="2.1" className="size-4" />
 												{/if}
 											</button>
-										</Tooltip>
-									{/each}
+											</Tooltip>
+										{/each}
+										{/if}
+									{/if}
 								{/if}
 							{/if}
-						{/if}
 					</div>
 
 					{#if message.done && showRateComment}

@@ -1358,7 +1358,6 @@
 					</Folder>
 			</div>
 
-			{#if !isKelia}
 			<div class="px-1.5 pt-1.5 pb-2 sticky bottom-0 z-10 -mt-3 sidebar">
 				<div
 					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
@@ -1368,6 +1367,7 @@
 						<UserMenu
 							role={$user?.role}
 							profile={true}
+							keliaMode={isKelia}
 							showActiveUsers={false}
 							on:show={(e) => {
 								if (e.detail === 'archived-chat') {
@@ -1405,7 +1405,6 @@
 					{/if}
 				</div>
 			</div>
-			{/if}
 		</div>
 	</div>
 
