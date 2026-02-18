@@ -56,6 +56,8 @@
 	export let moveChatHandler: (id: string, folderId: string) => void;
 
 	let closedBannerIds = [];
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia';
 
 	let showShareChatModal = false;
 	let showDownloadChatModal = false;
@@ -111,7 +113,7 @@
 			{$showSidebar ? 'ml-1' : ''}
 			"
 				>
-					{#if showModelSelector}
+					{#if showModelSelector && !isKelia}
 						<ModelSelector bind:selectedModels showSetDefault={!shareEnabled} />
 					{/if}
 				</div>

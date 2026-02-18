@@ -14,6 +14,7 @@
 	import Audio from './Settings/Audio.svelte';
 	import DataControls from './Settings/DataControls.svelte';
 	import Personalization from './Settings/Personalization.svelte';
+	import Kelia from './Settings/Kelia.svelte';
 	import Search from '../icons/Search.svelte';
 	import XMark from '../icons/XMark.svelte';
 	import Connections from './Settings/Connections.svelte';
@@ -470,11 +471,17 @@
 
 	let availableSettings = [];
 	let filteredSettings = [];
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia';
 
 	let search = '';
 	let searchDebounceTimeout;
 
 	const getAvailableSettings = () => {
+		if (isKelia) {
+			return [{ id: 'kelia', title: 'Ontos.Live UI', keywords: ['theme', 'language', 'ui scale'] }];
+		}
+
 		return allSettings.filter((tab) => {
 			if (tab.id === 'connections') {
 				return $config?.features?.enable_direct_connections;
@@ -532,6 +539,9 @@
 	};
 
 	let selectedTab = 'general';
+	$: if (isKelia && selectedTab !== 'kelia') {
+		selectedTab = 'kelia';
+	}
 
 	// Function to handle sideways scrolling
 	const scrollHandler = (event) => {
@@ -572,7 +582,9 @@
 <Modal size="2xl" bind:show>
 	<div class="text-gray-700 dark:text-gray-100 mx-1">
 		<div class=" flex justify-between dark:text-gray-300 px-4 md:px-4.5 pt-4.5 pb-0.5 md:pb-2.5">
-			<div class=" text-lg font-medium self-center">{$i18n.t('Settings')}</div>
+			<div class=" text-lg font-medium self-center">
+				{isKelia ? 'Ontos.Live UI' : $i18n.t('Settings')}
+			</div>
 			<button
 				aria-label={$i18n.t('Close settings modal')}
 				class="self-center"
@@ -612,7 +624,30 @@
 				</div>
 				{#if filteredSettings.length > 0}
 					{#each filteredSettings as tabId (tabId)}
-						{#if tabId === 'general'}
+						{#if tabId === 'kelia'}
+							<button
+								role="tab"
+								aria-controls="tab-kelia"
+								aria-selected={selectedTab === 'kelia'}
+								class={`px-0.5 md:px-2.5 py-1 min-w-fit rounded-xl flex-1 md:flex-none flex text-left transition ${
+									selectedTab === 'kelia'
+										? ($settings?.highContrastMode ?? false)
+											? 'dark:bg-gray-800 bg-gray-200'
+											: ''
+										: ($settings?.highContrastMode ?? false)
+											? 'hover:bg-gray-200 dark:hover:bg-gray-800'
+											: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'
+								}`}
+								on:click={() => {
+									selectedTab = 'kelia';
+								}}
+							>
+								<div class=" self-center mr-2">
+									<SettingsAlt strokeWidth="2" />
+								</div>
+								<div class=" self-center">Ontos.Live UI</div>
+							</button>
+						{:else if tabId === 'general'}
 							<button
 								role="tab"
 								aria-controls="tab-general"
@@ -839,7 +874,7 @@
 						{$i18n.t('No results found')}
 					</div>
 				{/if}
-				{#if $user?.role === 'admin'}
+				{#if !isKelia && $user?.role === 'admin'}
 					<a
 						href="/admin/settings"
 						class="px-0.5 md:px-2.5 py-1 min-w-fit rounded-xl flex-1 md:flex-none md:mt-auto flex text-left transition {$settings?.highContrastMode
@@ -859,7 +894,9 @@
 				{/if}
 			</div>
 			<div class="flex-1 px-3.5 md:pl-0 md:pr-4.5 md:min-h-[42rem] max-h-[42rem]">
-				{#if selectedTab === 'general'}
+				{#if selectedTab === 'kelia'}
+					<Kelia {saveSettings} />
+				{:else if selectedTab === 'general'}
 					<General
 						{getModels}
 						{saveSettings}

@@ -91,6 +91,8 @@
 
 	let folders = {};
 	let folderRegistry = {};
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia';
 
 	let newFolderId = null;
 
@@ -726,7 +728,7 @@
 					</Tooltip>
 				</div>
 
-				{#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
+				{#if !isKelia && ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
 					<div class="">
 						<Tooltip content={$i18n.t('Notes')} placement="right">
 							<a
@@ -750,7 +752,7 @@
 					</div>
 				{/if}
 
-				{#if $user?.role === 'admin' || $user?.permissions?.workspace?.models || $user?.permissions?.workspace?.knowledge || $user?.permissions?.workspace?.prompts || $user?.permissions?.workspace?.tools}
+				{#if !isKelia && ($user?.role === 'admin' || $user?.permissions?.workspace?.models || $user?.permissions?.workspace?.knowledge || $user?.permissions?.workspace?.prompts || $user?.permissions?.workspace?.tools)}
 					<div class="">
 						<Tooltip content={$i18n.t('Workspace')} placement="right">
 							<a
@@ -789,6 +791,7 @@
 			</div>
 		</button>
 
+		{#if !isKelia}
 		<div>
 			<div>
 				<div class=" py-2 flex justify-center items-center">
@@ -833,6 +836,7 @@
 				</div>
 			</div>
 		</div>
+		{/if}
 	</div>
 {/if}
 
@@ -961,7 +965,7 @@
 						</button>
 					</div>
 
-					{#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
+					{#if !isKelia && ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
 						<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
 							<a
 								id="sidebar-notes-button"
@@ -982,7 +986,7 @@
 						</div>
 					{/if}
 
-					{#if $user?.role === 'admin' || $user?.permissions?.workspace?.models || $user?.permissions?.workspace?.knowledge || $user?.permissions?.workspace?.prompts || $user?.permissions?.workspace?.tools}
+					{#if !isKelia && ($user?.role === 'admin' || $user?.permissions?.workspace?.models || $user?.permissions?.workspace?.knowledge || $user?.permissions?.workspace?.prompts || $user?.permissions?.workspace?.tools)}
 						<div class="px-[0.4375rem] flex justify-center text-gray-800 dark:text-gray-200">
 							<a
 								id="sidebar-workspace-button"
@@ -1017,7 +1021,7 @@
 					{/if}
 				</div>
 
-				{#if ($models ?? []).length > 0 && (($settings?.pinnedModels ?? []).length > 0 || $config?.default_pinned_models)}
+				{#if !isKelia && ($models ?? []).length > 0 && (($settings?.pinnedModels ?? []).length > 0 || $config?.default_pinned_models)}
 					<Folder
 						id="sidebar-models"
 						bind:open={showPinnedModels}
@@ -1030,7 +1034,7 @@
 					</Folder>
 				{/if}
 
-				{#if $config?.features?.enable_channels && ($user?.role === 'admin' || ($user?.permissions?.features?.channels ?? true))}
+				{#if !isKelia && $config?.features?.enable_channels && ($user?.role === 'admin' || ($user?.permissions?.features?.channels ?? true))}
 					<Folder
 						id="sidebar-channels"
 						bind:open={showChannels}
@@ -1065,7 +1069,7 @@
 					</Folder>
 				{/if}
 
-				{#if $config?.features?.enable_folders && ($user?.role === 'admin' || ($user?.permissions?.features?.folders ?? true))}
+				{#if !isKelia && $config?.features?.enable_folders && ($user?.role === 'admin' || ($user?.permissions?.features?.folders ?? true))}
 					<Folder
 						id="sidebar-folders"
 						bind:open={showFolders}
@@ -1119,6 +1123,7 @@
 					</Folder>
 				{/if}
 
+				{#if !isKelia}
 				<Folder
 					id="sidebar-chats"
 					className="px-2 mt-0.5"
@@ -1352,8 +1357,10 @@
 						</div>
 					</div>
 				</Folder>
+				{/if}
 			</div>
 
+			{#if !isKelia}
 			<div class="px-1.5 pt-1.5 pb-2 sticky bottom-0 z-10 -mt-3 sidebar">
 				<div
 					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
@@ -1400,6 +1407,7 @@
 					{/if}
 				</div>
 			</div>
+			{/if}
 		</div>
 	</div>
 

@@ -112,6 +112,7 @@ from open_webui.models.functions import Functions
 from open_webui.models.models import Models
 from open_webui.models.users import UserModel, Users
 from open_webui.models.chats import Chats
+from open_webui.utils.ui_profile import get_user_ui_profile
 
 from open_webui.config import (
     # Ollama
@@ -1911,6 +1912,8 @@ async def get_app_config(request: Request):
         if data is not None and "id" in data:
             user = Users.get_user_by_id(data["id"])
 
+    ui_profile = get_user_ui_profile(getattr(user, "id", None))
+
     user_count = Users.get_num_users()
     onboarding = False
 
@@ -1941,6 +1944,7 @@ async def get_app_config(request: Request):
             "enable_websocket": ENABLE_WEBSOCKET_SUPPORT,
             "enable_version_update_check": ENABLE_VERSION_UPDATE_CHECK,
             "enable_public_active_users_count": ENABLE_PUBLIC_ACTIVE_USERS_COUNT,
+            "ontogit_memory": True,
             **(
                 {
                     "enable_direct_connections": app.state.config.ENABLE_DIRECT_CONNECTIONS,
@@ -1972,6 +1976,7 @@ async def get_app_config(request: Request):
                 else {}
             ),
         },
+        **({"ui_profile": ui_profile} if ui_profile else {}),
         **(
             {
                 "default_models": app.state.config.DEFAULT_MODELS,

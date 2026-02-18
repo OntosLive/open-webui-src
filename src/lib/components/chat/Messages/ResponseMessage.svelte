@@ -159,6 +159,8 @@
 
 	let model = null;
 	$: model = $models.find((m) => m.id === message.model);
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia';
 
 	let edit = false;
 	let editedContent = '';
@@ -536,6 +538,25 @@
 		deleteMessage(message.id);
 	};
 
+	const commitGoosebumps = async () => {
+		try {
+			await fetch(`${WEBUI_BASE_URL}/api/v1/ontogit_commit`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${localStorage.token}`
+				},
+				body: JSON.stringify({
+					reason: 'goosebumps',
+					chat_id: chatId,
+					message_id: message.id
+				})
+			});
+		} catch (error) {
+			console.error('Failed to commit ontogit goosebumps:', error);
+		}
+	};
+
 	$: if (!edit) {
 		(async () => {
 			await tick();
@@ -624,39 +645,43 @@
 		id="message-{message.id}"
 		dir={$settings.chatDirection}
 	>
-		<div class={`shrink-0 ltr:mr-3 rtl:ml-3 hidden @lg:flex mt-1 `}>
-			<ProfileImage
-				src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}`}
-				className={'size-8 assistant-message-profile-image'}
-			/>
-		</div>
+		{#if !isKelia}
+			<div class={`shrink-0 ltr:mr-3 rtl:ml-3 hidden @lg:flex mt-1 `}>
+				<ProfileImage
+					src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}`}
+					className={'size-8 assistant-message-profile-image'}
+				/>
+			</div>
+		{/if}
 
 		<div class="flex-auto w-0 pl-1 relative">
-			<Name>
-				<Tooltip content={model?.name ?? message.model} placement="top-start">
-					<span id="response-message-model-name" class="line-clamp-1 text-black dark:text-white">
-						{model?.name ?? message.model}
-					</span>
-				</Tooltip>
+			{#if !isKelia}
+				<Name>
+					<Tooltip content={model?.name ?? message.model} placement="top-start">
+						<span id="response-message-model-name" class="line-clamp-1 text-black dark:text-white">
+							{model?.name ?? message.model}
+						</span>
+					</Tooltip>
 
-				{#if message.timestamp}
-					<div
-						class="self-center text-xs font-medium first-letter:capitalize ml-0.5 translate-y-[1px] {($settings?.highContrastMode ??
-						false)
-							? 'dark:text-gray-100 text-gray-900'
-							: 'invisible group-hover:visible transition text-gray-400'}"
-					>
-						<Tooltip content={dayjs(message.timestamp * 1000).format('LLLL')}>
-							<span class="line-clamp-1"
-								>{$i18n.t(formatDate(message.timestamp * 1000), {
-									LOCALIZED_TIME: dayjs(message.timestamp * 1000).format('LT'),
-									LOCALIZED_DATE: dayjs(message.timestamp * 1000).format('L')
-								})}</span
-							>
-						</Tooltip>
-					</div>
-				{/if}
-			</Name>
+					{#if message.timestamp}
+						<div
+							class="self-center text-xs font-medium first-letter:capitalize ml-0.5 translate-y-[1px] {($settings?.highContrastMode ??
+							false)
+								? 'dark:text-gray-100 text-gray-900'
+								: 'invisible group-hover:visible transition text-gray-400'}"
+						>
+							<Tooltip content={dayjs(message.timestamp * 1000).format('LLLL')}>
+								<span class="line-clamp-1"
+									>{$i18n.t(formatDate(message.timestamp * 1000), {
+										LOCALIZED_TIME: dayjs(message.timestamp * 1000).format('LT'),
+										LOCALIZED_DATE: dayjs(message.timestamp * 1000).format('L')
+									})}</span
+								>
+							</Tooltip>
+						</div>
+					{/if}
+				</Name>
+			{/if}
 
 			<div>
 				<div class="chat-{message.role} w-full min-w-full markdown-prose">
@@ -1205,6 +1230,30 @@
 
 								{#if !readOnly}
 									{#if !$temporaryChatEnabled && ($config?.features.enable_message_rating ?? true) && ($user?.role === 'admin' || ($user?.permissions?.chat?.rate_response ?? true))}
+										{#if isKelia}
+											<Tooltip content="мурашки" placement="bottom">
+												<button
+													aria-label="мурашки"
+													class="{isLastMessage || ($settings?.highContrastMode ?? false)
+														? 'visible'
+														: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition disabled:cursor-progress disabled:hover:bg-transparent {(message?.annotation?.rating ?? '').toString() === '1'
+														? 'bg-gray-100 dark:bg-gray-800'
+														: ''}"
+													disabled={feedbackLoading}
+													on:click={async () => {
+														await feedbackHandler(1);
+														await commitGoosebumps();
+														window.setTimeout(() => {
+															document
+																.getElementById(`message-feedback-${message.id}`)
+																?.scrollIntoView();
+														}, 0);
+													}}
+												>
+													<span class="text-xs font-medium">мурашки</span>
+												</button>
+											</Tooltip>
+										{:else}
 										<Tooltip content={$i18n.t('Good Response')} placement="bottom">
 											<button
 												aria-label={$i18n.t('Good Response')}
@@ -1280,6 +1329,7 @@
 												</svg>
 											</button>
 										</Tooltip>
+										{/if}
 									{/if}
 
 									{#if isLastMessage && ($user?.role === 'admin' || ($user?.permissions?.chat?.continue_response ?? true))}

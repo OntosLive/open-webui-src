@@ -1910,7 +1910,7 @@
 			}
 		}
 
-		if ($settings?.memory ?? false) {
+		if (($config?.features?.ontogit_memory ?? false) || ($settings?.memory ?? false)) {
 			features = { ...features, memory: true };
 		}
 

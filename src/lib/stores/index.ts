@@ -276,7 +276,9 @@ type Config = {
 		enable_autocomplete_generation: boolean;
 		enable_direct_connections: boolean;
 		enable_version_update_check: boolean;
+		ontogit_memory?: boolean;
 	};
+	ui_profile?: string;
 	oauth: {
 		providers: {
 			[key: string]: string;
@@ -302,4 +304,5 @@ export type SessionUser = {
 	name: string;
 	role: string;
 	profile_image_url: string;
+	ui_profile?: string;
 };

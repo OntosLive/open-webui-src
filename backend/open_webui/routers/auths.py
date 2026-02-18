@@ -64,6 +64,7 @@ from open_webui.utils.auth import (
     get_password_hash,
     get_http_authorization_cred,
 )
+from open_webui.utils.ui_profile import get_user_ui_profile
 from open_webui.utils.webhook import post_webhook
 from open_webui.utils.access_control import get_permissions, has_permission
 from open_webui.utils.groups import apply_default_group_assignment
@@ -120,6 +121,7 @@ def _normalize_invites(raw_invites) -> list[dict]:
 class SessionUserResponse(Token, UserProfileImageResponse):
     expires_at: Optional[int] = None
     permissions: Optional[dict] = None
+    ui_profile: Optional[str] = None
 
 
 class SessionUserInfoResponse(SessionUserResponse, UserStatus):
@@ -166,6 +168,7 @@ async def get_session_user(
     user_permissions = get_permissions(
         user.id, request.app.state.config.USER_PERMISSIONS
     )
+    ui_profile = get_user_ui_profile(user.id)
 
     return {
         "token": token,
@@ -183,6 +186,7 @@ async def get_session_user(
         "status_message": user.status_message,
         "status_expires_at": user.status_expires_at,
         "permissions": user_permissions,
+        "ui_profile": ui_profile,
     }
 
 
@@ -493,6 +497,7 @@ async def ldap_auth(request: Request, response: Response, form_data: LdapForm):
                 user_permissions = get_permissions(
                     user.id, request.app.state.config.USER_PERMISSIONS
                 )
+                ui_profile = get_user_ui_profile(user.id)
 
                 if (
                     user.role != "admin"
@@ -519,6 +524,7 @@ async def ldap_auth(request: Request, response: Response, form_data: LdapForm):
                     "role": user.role,
                     "profile_image_url": user.profile_image_url,
                     "permissions": user_permissions,
+                    "ui_profile": ui_profile,
                 }
             else:
                 raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
@@ -645,6 +651,7 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
         user_permissions = get_permissions(
             user.id, request.app.state.config.USER_PERMISSIONS
         )
+        ui_profile = get_user_ui_profile(user.id)
 
         return {
             "token": token,
@@ -656,6 +663,7 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
             "role": user.role,
             "profile_image_url": user.profile_image_url,
             "permissions": user_permissions,
+            "ui_profile": ui_profile,
         }
     else:
         raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
@@ -784,6 +792,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             user_permissions = get_permissions(
                 user.id, request.app.state.config.USER_PERMISSIONS
             )
+            ui_profile = get_user_ui_profile(user.id)
 
             if not has_users:
                 # Disable signup after the first user is created
@@ -812,6 +821,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
                 "role": user.role,
                 "profile_image_url": user.profile_image_url,
                 "permissions": user_permissions,
+                "ui_profile": ui_profile,
             }
         else:
             raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_USER_ERROR)

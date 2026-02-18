@@ -380,6 +380,8 @@
 	let suggestions = null;
 
 	let showTools = false;
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $_user?.ui_profile ?? null) === 'kelia';
 
 	let loaded = false;
 	let recording = false;
@@ -533,6 +535,11 @@
 	};
 
 	const uploadFileHandler = async (file, process = true, itemData = {}) => {
+		if (isKelia) {
+			toast.error($i18n.t('File upload is disabled in this profile.'));
+			return null;
+		}
+
 		if ($_user?.role !== 'admin' && !($_user?.permissions?.chat?.file_upload ?? true)) {
 			toast.error($i18n.t('You do not have permission to upload files.'));
 			return null;
@@ -641,6 +648,11 @@
 	};
 
 	const inputFilesHandler = async (inputFiles) => {
+		if (isKelia) {
+			toast.error($i18n.t('File upload is disabled in this profile.'));
+			return;
+		}
+
 		console.log('Input files handler called with:', inputFiles);
 
 		if (
@@ -1111,7 +1123,7 @@
 								: ' border-gray-100/30 dark:border-gray-850/30 hover:border-gray-200 focus-within:border-gray-100 hover:dark:border-gray-800 focus-within:dark:border-gray-800'}  transition px-1 bg-white/5 dark:bg-gray-500/5 backdrop-blur-sm dark:text-gray-100"
 							dir={$settings?.chatDirection ?? 'auto'}
 						>
-							{#if atSelectedModel !== undefined}
+							{#if !isKelia && atSelectedModel !== undefined}
 								<div class="px-3 pt-3 text-left w-full flex flex-col z-10">
 									<div class="flex items-center justify-between w-full">
 										<div class="pl-[1px] flex items-center gap-2 text-sm dark:text-gray-500">
@@ -1138,7 +1150,7 @@
 								</div>
 							{/if}
 
-							{#if files.length > 0}
+							{#if !isKelia && files.length > 0}
 								<div
 									class="mx-2 mt-2.5 pb-1.5 flex items-center flex-wrap gap-2"
 									dir={$settings?.chatDirection ?? 'auto'}
@@ -1431,6 +1443,7 @@
 
 							<div class=" flex justify-between mt-0.5 mb-2.5 mx-0.5 max-w-full" dir="ltr">
 								<div class="ml-1 self-end flex items-center flex-1 max-w-[80%]">
+									{#if !isKelia}
 									<InputMenu
 										bind:files
 										selectedModels={atSelectedModel ? [atSelectedModel.id] : selectedModels}
@@ -1490,8 +1503,9 @@
 											<PlusAlt className="size-5.5" />
 										</div>
 									</InputMenu>
+									{/if}
 
-									{#if showWebSearchButton || showImageGenerationButton || showCodeInterpreterButton || showToolsButton || (toggleFilters && toggleFilters.length > 0)}
+									{#if !isKelia && (showWebSearchButton || showImageGenerationButton || showCodeInterpreterButton || showToolsButton || (toggleFilters && toggleFilters.length > 0))}
 										<div
 											class="flex self-center w-[1px] h-4 mx-1 bg-gray-200/50 dark:bg-gray-800/50"
 										/>
@@ -1531,7 +1545,7 @@
 										</IntegrationsMenu>
 									{/if}
 
-									{#if selectedModelIds.length === 1 && $models.find((m) => m.id === selectedModelIds[0])?.has_user_valves}
+									{#if !isKelia && selectedModelIds.length === 1 && $models.find((m) => m.id === selectedModelIds[0])?.has_user_valves}
 										<div class="ml-1 flex gap-1.5">
 											<Tooltip content={$i18n.t('Valves')} placement="top">
 												<button
@@ -1550,6 +1564,7 @@
 										</div>
 									{/if}
 
+									{#if !isKelia}
 									<div class="ml-1 flex gap-1.5">
 										{#if (selectedToolIds ?? []).length > 0}
 											<Tooltip
@@ -1673,6 +1688,7 @@
 											</Tooltip>
 										{/if}
 									</div>
+									{/if}
 								</div>
 
 								<div class="self-end flex space-x-1 mr-1 shrink-0 gap-[0.5px]">
@@ -1701,7 +1717,7 @@
 											</Tooltip>
 										</div>
 									{:else}
-										{#if prompt !== '' && !history?.currentId && ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
+										{#if !isKelia && prompt !== '' && !history?.currentId && ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
 											<!-- {$i18n.t('Create Note')}  -->
 											<Tooltip content={$i18n.t('Create note')} className=" flex items-center">
 												<button
@@ -1718,7 +1734,7 @@
 											</Tooltip>
 										{/if}
 
-										{#if (!history?.currentId || history.messages[history.currentId]?.done == true) && ($_user?.role === 'admin' || ($_user?.permissions?.chat?.stt ?? true))}
+										{#if !isKelia && (!history?.currentId || history.messages[history.currentId]?.done == true) && ($_user?.role === 'admin' || ($_user?.permissions?.chat?.stt ?? true))}
 											<!-- {$i18n.t('Record voice')} -->
 											<Tooltip content={$i18n.t('Dictate')}>
 												<button
@@ -1777,7 +1793,7 @@
 											</Tooltip>
 										{/if}
 
-										{#if prompt === '' && files.length === 0 && ($_user?.role === 'admin' || ($_user?.permissions?.chat?.call ?? true))}
+										{#if !isKelia && prompt === '' && files.length === 0 && ($_user?.role === 'admin' || ($_user?.permissions?.chat?.call ?? true))}
 											<div class=" flex items-center">
 												<!-- {$i18n.t('Call')} -->
 												<Tooltip content={$i18n.t('Voice mode')}>
