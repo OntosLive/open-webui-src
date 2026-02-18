@@ -34,6 +34,63 @@
 
 	let transcription = '';
 	const DOWNLOAD_TIMEOUT_MS = 60000;
+	const WEB_SPEECH_STT_FLAG_KEY = 'OPENWEBUI_ENABLE_WEB_SPEECH_STT';
+	const DEFAULT_RECORDING_MIME_TYPES = [
+		'audio/webm;codecs=opus',
+		'audio/webm',
+		'audio/mp4',
+		'audio/ogg',
+		'audio/wav',
+		'audio/mpeg'
+	];
+	let webSpeechSttEnabled = false;
+	let selectedRecordingMimeType = 'audio/webm';
+	let sttModeLabel = 'server';
+
+	const normalizeMimeType = (value: string) => value.toLowerCase().replace(/\s+/g, '');
+
+	const isWebSpeechRequested = () =>
+		$config.audio.stt.engine === 'web' || ($settings?.audio?.stt?.engine ?? '') === 'web';
+
+	const shouldUseWebSpeechRecognition = () => isWebSpeechRequested() && webSpeechSttEnabled;
+
+	const getBackendSupportedRecordingTypes = () => {
+		const backendTypes = $config?.audio?.stt?.supported_content_types ?? [];
+		const candidates = [];
+
+		for (const rawType of backendTypes) {
+			if (typeof rawType !== 'string') continue;
+			const type = normalizeMimeType(rawType);
+
+			if (type === 'audio/*') {
+				candidates.push(...DEFAULT_RECORDING_MIME_TYPES);
+				continue;
+			}
+
+			if (type.startsWith('audio/')) {
+				candidates.push(type);
+				continue;
+			}
+
+			if (type === 'video/webm') {
+				candidates.push('audio/webm;codecs=opus', 'audio/webm');
+			}
+		}
+
+		if (candidates.length === 0) {
+			candidates.push(...DEFAULT_RECORDING_MIME_TYPES);
+		} else {
+			candidates.push(...DEFAULT_RECORDING_MIME_TYPES);
+		}
+
+		return [...new Set(candidates)];
+	};
+
+	const selectRecordingMimeType = () => {
+		if (!('MediaRecorder' in window)) return null;
+		const supportedTypes = getBackendSupportedRecordingTypes();
+		return supportedTypes.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
+	};
 
 	const downloadLocalBackup = (blob: Blob, filename: string) => {
 		const url = URL.createObjectURL(blob);
@@ -197,7 +254,7 @@
 		}
 
 		if (transcribe) {
-			if ($config.audio.stt.engine === 'web' || ($settings?.audio?.stt?.engine ?? '') === 'web') {
+			if (shouldUseWebSpeechRecognition()) {
 				// with web stt, we don't need to send the file to the server
 				return;
 			}
@@ -226,6 +283,12 @@
 
 	const startRecording = async () => {
 		loading = true;
+		transcription = '';
+		sttModeLabel = shouldUseWebSpeechRecognition() ? 'web' : 'server';
+
+		if (isWebSpeechRequested() && !webSpeechSttEnabled) {
+			console.info('[STT] Web Speech requested but disabled by flag, forcing server transcription');
+		}
 
 		try {
 			if (displayMedia) {
@@ -258,10 +321,25 @@
 			return;
 		}
 
-		const mineTypes = ['audio/webm; codecs=opus', 'audio/mp4'];
+		const chosenMimeType = selectRecordingMimeType();
+		if (!chosenMimeType) {
+			toast.error(
+				$i18n.t('No compatible audio mime type found for MediaRecorder and backend STT config.')
+			);
+			loading = false;
+			recording = false;
+			if (stream) {
+				const tracks = stream.getTracks();
+				tracks.forEach((track) => track.stop());
+			}
+			stream = null;
+			return;
+		}
+		selectedRecordingMimeType = chosenMimeType;
+		console.info(`[STT] mode=${sttModeLabel} mimeType=${selectedRecordingMimeType}`);
 
 		mediaRecorder = new MediaRecorder(stream, {
-			mimeType: mineTypes.find((type) => MediaRecorder.isTypeSupported(type))
+			mimeType: selectedRecordingMimeType
 		});
 
 		mediaRecorder.onstart = () => {
@@ -310,7 +388,7 @@
 		}
 
 		if (transcribe) {
-			if ($config.audio.stt.engine === 'web' || ($settings?.audio?.stt?.engine ?? '') === 'web') {
+			if (shouldUseWebSpeechRecognition()) {
 				if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
 					// Create a SpeechRecognition object
 					speechRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -417,6 +495,7 @@
 	$: maxVisibleItems = Math.floor(containerWidth / 5); // 2px width + 0.5px gap
 
 	onMount(() => {
+		webSpeechSttEnabled = localStorage.getItem(WEB_SPEECH_STT_FLAG_KEY) === '1';
 		// listen to width changes
 		resizeObserver = new ResizeObserver(() => {
 			VISUALIZER_BUFFER_LENGTH = Math.floor(window.innerWidth / 4);
@@ -490,14 +569,19 @@
 
 	<div class="flex">
 		<div class="  mx-1.5 pr-1 flex justify-center items-center">
-			<div
-				class="text-sm
-        
-        
+			<div class="flex flex-col items-end">
+				<div
+					class="text-sm
+
+
         {loading ? ' text-gray-500  dark:text-gray-400  ' : ' text-indigo-400 '} 
        font-medium flex-1 mx-auto text-center"
-			>
-				{formatSeconds(durationSeconds)}
+				>
+					{formatSeconds(durationSeconds)}
+				</div>
+				<div class="text-[10px] text-gray-500 dark:text-gray-400 leading-none">
+					{`STT: ${sttModeLabel} · ${selectedRecordingMimeType}`}
+				</div>
 			</div>
 		</div>
 

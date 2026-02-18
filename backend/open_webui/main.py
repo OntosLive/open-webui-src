@@ -1989,6 +1989,7 @@ async def get_app_config(request: Request):
                     },
                     "stt": {
                         "engine": app.state.config.STT_ENGINE,
+                        "supported_content_types": app.state.config.STT_SUPPORTED_CONTENT_TYPES,
                     },
                 },
                 "file": {

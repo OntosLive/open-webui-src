@@ -1727,6 +1727,15 @@
 													type="button"
 													on:click={async () => {
 														try {
+															if (!('MediaRecorder' in window)) {
+																toast.error(
+																	$i18n.t(
+																		'This browser does not support MediaRecorder required for server STT recording.'
+																	)
+																);
+																return;
+															}
+
 															let stream = await navigator.mediaDevices
 																.getUserMedia({ audio: true })
 																.catch(function (err) {
