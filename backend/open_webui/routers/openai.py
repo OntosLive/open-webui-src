@@ -1,8 +1,13 @@
 import asyncio
+import datetime
 import hashlib
 import json
 import logging
+import os
+from pathlib import Path
+import time
 from typing import Optional
+import uuid
 
 import aiohttp
 from aiocache import cached
@@ -49,9 +54,171 @@ from open_webui.utils.misc import (
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.access_control import has_access
 from open_webui.utils.headers import include_user_info_headers
+from open_webui.utils.ui_profile import get_user_ui_profile
 
 
 log = logging.getLogger(__name__)
+
+_ONTOGIT_PAYLOAD_AUDIT_RUN_TS = None
+
+
+def _safe_json_chars(value) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, str):
+        return len(value)
+    try:
+        return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")))
+    except Exception:
+        return len(str(value))
+
+
+def _message_content_chars(message: dict) -> int:
+    if not isinstance(message, dict):
+        return 0
+
+    content = message.get("content")
+    if isinstance(content, str):
+        return len(content)
+
+    if isinstance(content, list):
+        total = 0
+        for part in content:
+            if isinstance(part, dict):
+                total += _safe_json_chars(part)
+            elif isinstance(part, str):
+                total += len(part)
+            else:
+                total += _safe_json_chars(part)
+        return total
+
+    return _safe_json_chars(content)
+
+
+def _extract_group_ids_from_user(user) -> list[str]:
+    group_ids = []
+
+    user_group_ids = getattr(user, "group_ids", None)
+    if isinstance(user_group_ids, list):
+        group_ids.extend([str(g) for g in user_group_ids if g is not None])
+
+    user_info = getattr(user, "info", None)
+    if isinstance(user_info, dict):
+        info_group_ids = user_info.get("group_ids")
+        if isinstance(info_group_ids, list):
+            group_ids.extend([str(g) for g in info_group_ids if g is not None])
+
+    # Keep stable order and uniqueness
+    return list(dict.fromkeys(group_ids))
+
+
+def _build_payload_audit_summary(payload: dict, user, request_id: str) -> dict:
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    messages = payload.get("messages", [])
+    tools = payload.get("tools", [])
+
+    role_chars = {"system": 0, "user": 0, "assistant": 0, "other": 0}
+    total_message_chars = 0
+    for message in messages if isinstance(messages, list) else []:
+        chars = _message_content_chars(message)
+        total_message_chars += chars
+
+        role = message.get("role") if isinstance(message, dict) else "other"
+        if role not in role_chars:
+            role = "other"
+        role_chars[role] += chars
+
+    retrieval_keys = [
+        "context",
+        "documents",
+        "retrieval",
+        "retrieval_context",
+        "rag",
+        "files",
+        "attachments",
+        "knowledge",
+        "sources",
+    ]
+    retrieval_chars_total = 0
+    for key in retrieval_keys:
+        if key in payload:
+            retrieval_chars_total += _safe_json_chars(payload.get(key))
+
+    excluded_keys = {
+        "model",
+        "messages",
+        "tools",
+        "tool_choice",
+        "stream",
+        "temperature",
+        "top_p",
+        "max_tokens",
+        "max_completion_tokens",
+        "frequency_penalty",
+        "presence_penalty",
+        "metadata",
+        "user",
+    }
+    other_large_fields = []
+    for key, value in payload.items():
+        if key in excluded_keys:
+            continue
+        chars = _safe_json_chars(value)
+        if chars >= 512:
+            other_large_fields.append({"name": key, "chars_total": chars})
+
+    group_ids = _extract_group_ids_from_user(user)
+    ui_profile = get_user_ui_profile(user.id)
+
+    summary = {
+        "ts": now,
+        "request_id": request_id,
+        "user_id": str(getattr(user, "id", "")),
+        "role": str(getattr(user, "role", "")),
+        "ui_profile": ui_profile,
+        "groups": group_ids,
+        "model": payload.get("model"),
+        "messages": {
+            "count": len(messages) if isinstance(messages, list) else 0,
+            "chars_total": total_message_chars,
+            "by_role": role_chars,
+        },
+        "tools": {
+            "count": len(tools) if isinstance(tools, list) else 0,
+            "chars_total": _safe_json_chars(tools),
+        },
+        "has_tool_choice": "tool_choice" in payload,
+        "has_retrieval_context": retrieval_chars_total > 0,
+        "retrieval_chars_total": retrieval_chars_total,
+        "other_large_fields": other_large_fields,
+    }
+
+    return summary
+
+
+def _write_payload_audit_summary(
+    summary: dict, run_ts_override: Optional[str] = None
+) -> Optional[str]:
+    base_dir = os.environ.get(
+        "ONTOGIT_PAYLOAD_AUDIT_BASE_DIR",
+        "/home/ontoslive/ontos_work/ontogit-stack/ops/state",
+    )
+    run_ts = run_ts_override or os.environ.get("ONTOGIT_PAYLOAD_AUDIT_TS")
+
+    global _ONTOGIT_PAYLOAD_AUDIT_RUN_TS
+    if not run_ts:
+        if _ONTOGIT_PAYLOAD_AUDIT_RUN_TS is None:
+            _ONTOGIT_PAYLOAD_AUDIT_RUN_TS = time.strftime("%Y%m%d_%H%M%S")
+        run_ts = _ONTOGIT_PAYLOAD_AUDIT_RUN_TS
+
+    run_dir = Path(base_dir) / f"{run_ts}_payload_audit_v1"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_request_id = str(summary.get("request_id", "no_req")).replace("/", "_")
+    safe_user_id = str(summary.get("user_id", "anon")).replace("/", "_")
+    path = run_dir / f"{safe_request_id}_{safe_user_id}.json"
+    path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
+    return str(path)
 
 
 ##########################################
@@ -922,6 +1089,40 @@ async def generate_chat_completion(
         request_url = f"{request_url}/chat/completions?api-version={api_version}"
     else:
         request_url = f"{url}/chat/completions"
+
+    audit_enabled = os.environ.get("ONTOGIT_PAYLOAD_AUDIT", "0") == "1"
+    audit_only = request.headers.get("X-Ontogit-Audit-Only", "0") == "1"
+    if audit_only and not audit_enabled:
+        return JSONResponse(
+            status_code=412,
+            content={
+                "audit_only": True,
+                "error": "ONTOGIT_PAYLOAD_AUDIT is disabled on backend",
+            },
+        )
+
+    if audit_enabled:
+        request_id = (
+            request.headers.get("X-Request-Id")
+            or request.headers.get("X-Request-ID")
+            or str(uuid.uuid4())
+        )
+        summary = _build_payload_audit_summary(payload, user, request_id=request_id)
+        artifact_path = _write_payload_audit_summary(
+            summary, run_ts_override=request.headers.get("X-Ontogit-Audit-Ts")
+        )
+        summary["artifact_path"] = artifact_path
+
+        if audit_only:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "audit_only": True,
+                    "request_id": request_id,
+                    "artifact_path": artifact_path,
+                    "summary": summary,
+                },
+            )
 
     payload = json.dumps(payload)
 
