@@ -5,6 +5,7 @@
 		showSidebar,
 		functions,
 		user,
+		config,
 		mobile,
 		models,
 		prompts,
@@ -19,8 +20,15 @@
 	const i18n = getContext('i18n');
 
 	let loaded = false;
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia';
 
 	onMount(async () => {
+		if (isKelia) {
+			goto('/');
+			return;
+		}
+
 		if ($user?.role !== 'admin') {
 			if ($page.url.pathname.includes('/models') && !$user?.permissions?.workspace?.models) {
 				goto('/');

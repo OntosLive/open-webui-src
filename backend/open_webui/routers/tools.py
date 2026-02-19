@@ -37,6 +37,23 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _enforce_tool_access(user, tool, permission: str = "read"):
+    if not tool:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+    if user.role == "admin" or tool.user_id == user.id:
+        return
+
+    if not has_access(user.id, permission, tool.access_control):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
+
+
 def get_tool_module(request, tool_id, load_from_db=True):
     """
     Get the tool module by its ID.
@@ -459,19 +476,14 @@ async def delete_tools_by_id(
 @router.get("/id/{id}/valves", response_model=Optional[dict])
 async def get_tools_valves_by_id(id: str, user=Depends(get_verified_user)):
     tools = Tools.get_tool_by_id(id)
-    if tools:
-        try:
-            valves = Tools.get_tool_valves_by_id(id)
-            return valves
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.DEFAULT(str(e)),
-            )
-    else:
+    _enforce_tool_access(user, tools, "read")
+    try:
+        valves = Tools.get_tool_valves_by_id(id)
+        return valves
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=ERROR_MESSAGES.NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(str(e)),
         )
 
 
@@ -485,22 +497,17 @@ async def get_tools_valves_spec_by_id(
     request: Request, id: str, user=Depends(get_verified_user)
 ):
     tools = Tools.get_tool_by_id(id)
-    if tools:
-        if id in request.app.state.TOOLS:
-            tools_module = request.app.state.TOOLS[id]
-        else:
-            tools_module, _ = load_tool_module_by_id(id)
-            request.app.state.TOOLS[id] = tools_module
-
-        if hasattr(tools_module, "Valves"):
-            Valves = tools_module.Valves
-            return Valves.schema()
-        return None
+    _enforce_tool_access(user, tools, "read")
+    if id in request.app.state.TOOLS:
+        tools_module = request.app.state.TOOLS[id]
     else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=ERROR_MESSAGES.NOT_FOUND,
-        )
+        tools_module, _ = load_tool_module_by_id(id)
+        request.app.state.TOOLS[id] = tools_module
+
+    if hasattr(tools_module, "Valves"):
+        Valves = tools_module.Valves
+        return Valves.schema()
+    return None
 
 
 ############################
@@ -564,19 +571,14 @@ async def update_tools_valves_by_id(
 @router.get("/id/{id}/valves/user", response_model=Optional[dict])
 async def get_tools_user_valves_by_id(id: str, user=Depends(get_verified_user)):
     tools = Tools.get_tool_by_id(id)
-    if tools:
-        try:
-            user_valves = Tools.get_user_valves_by_id_and_user_id(id, user.id)
-            return user_valves
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.DEFAULT(str(e)),
-            )
-    else:
+    _enforce_tool_access(user, tools, "read")
+    try:
+        user_valves = Tools.get_user_valves_by_id_and_user_id(id, user.id)
+        return user_valves
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=ERROR_MESSAGES.NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.DEFAULT(str(e)),
         )
 
 
@@ -585,22 +587,17 @@ async def get_tools_user_valves_spec_by_id(
     request: Request, id: str, user=Depends(get_verified_user)
 ):
     tools = Tools.get_tool_by_id(id)
-    if tools:
-        if id in request.app.state.TOOLS:
-            tools_module = request.app.state.TOOLS[id]
-        else:
-            tools_module, _ = load_tool_module_by_id(id)
-            request.app.state.TOOLS[id] = tools_module
-
-        if hasattr(tools_module, "UserValves"):
-            UserValves = tools_module.UserValves
-            return UserValves.schema()
-        return None
+    _enforce_tool_access(user, tools, "read")
+    if id in request.app.state.TOOLS:
+        tools_module = request.app.state.TOOLS[id]
     else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=ERROR_MESSAGES.NOT_FOUND,
-        )
+        tools_module, _ = load_tool_module_by_id(id)
+        request.app.state.TOOLS[id] = tools_module
+
+    if hasattr(tools_module, "UserValves"):
+        UserValves = tools_module.UserValves
+        return UserValves.schema()
+    return None
 
 
 @router.post("/id/{id}/valves/user/update", response_model=Optional[dict])
@@ -608,35 +605,30 @@ async def update_tools_user_valves_by_id(
     request: Request, id: str, form_data: dict, user=Depends(get_verified_user)
 ):
     tools = Tools.get_tool_by_id(id)
+    _enforce_tool_access(user, tools, "read")
 
-    if tools:
-        if id in request.app.state.TOOLS:
-            tools_module = request.app.state.TOOLS[id]
-        else:
-            tools_module, _ = load_tool_module_by_id(id)
-            request.app.state.TOOLS[id] = tools_module
+    if id in request.app.state.TOOLS:
+        tools_module = request.app.state.TOOLS[id]
+    else:
+        tools_module, _ = load_tool_module_by_id(id)
+        request.app.state.TOOLS[id] = tools_module
 
-        if hasattr(tools_module, "UserValves"):
-            UserValves = tools_module.UserValves
+    if hasattr(tools_module, "UserValves"):
+        UserValves = tools_module.UserValves
 
-            try:
-                form_data = {k: v for k, v in form_data.items() if v is not None}
-                user_valves = UserValves(**form_data)
-                user_valves_dict = user_valves.model_dump(exclude_unset=True)
-                Tools.update_user_valves_by_id_and_user_id(
-                    id, user.id, user_valves_dict
-                )
-                return user_valves_dict
-            except Exception as e:
-                log.exception(f"Failed to update user valves by id {id}: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=ERROR_MESSAGES.DEFAULT(str(e)),
-                )
-        else:
+        try:
+            form_data = {k: v for k, v in form_data.items() if v is not None}
+            user_valves = UserValves(**form_data)
+            user_valves_dict = user_valves.model_dump(exclude_unset=True)
+            Tools.update_user_valves_by_id_and_user_id(
+                id, user.id, user_valves_dict
+            )
+            return user_valves_dict
+        except Exception as e:
+            log.exception(f"Failed to update user valves by id {id}: {e}")
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=ERROR_MESSAGES.NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ERROR_MESSAGES.DEFAULT(str(e)),
             )
     else:
         raise HTTPException(

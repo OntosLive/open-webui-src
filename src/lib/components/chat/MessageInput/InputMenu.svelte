@@ -52,9 +52,11 @@
 	let showAttachWebpageModal = false;
 
 	let fileUploadEnabled = true;
+	let isKelia = false;
 	$: fileUploadEnabled =
 		fileUploadCapableModels.length === selectedModels.length &&
 		($user?.role === 'admin' || $user?.permissions?.chat?.file_upload);
+	$: isKelia = ($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia';
 
 	$: if (!fileUploadEnabled && files.length > 0) {
 		files = [];
@@ -207,7 +209,7 @@
 						</DropdownMenu.Item>
 					</Tooltip>
 
-					{#if $config?.features?.enable_notes ?? false}
+					{#if !isKelia && ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
 						<Tooltip
 							content={fileUploadCapableModels.length !== selectedModels.length
 								? $i18n.t('Model(s) do not support file upload')

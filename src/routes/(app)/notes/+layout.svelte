@@ -6,9 +6,12 @@
 	const i18n = getContext('i18n');
 
 	let loaded = false;
+	let isKelia = false;
+	$: isKelia = ($config?.ui_profile ?? $user?.ui_profile ?? null) === 'kelia';
 
 	onMount(async () => {
 		if (
+			isKelia ||
 			!(
 				($config?.features?.enable_notes ?? false) &&
 				($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))

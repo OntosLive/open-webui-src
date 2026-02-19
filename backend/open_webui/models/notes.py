@@ -354,9 +354,106 @@ class NoteTable:
             notes = query.all()
             return [NoteModel.model_validate(note) for note in notes]
 
+    def get_notes_by_owner_user_id(
+        self,
+        owner_user_id: str,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> list[NoteModel]:
+        with get_db() as db:
+            query = (
+                db.query(Note)
+                .filter(Note.user_id == owner_user_id)
+                .order_by(Note.updated_at.desc())
+            )
+            if skip is not None:
+                query = query.offset(skip)
+            if limit is not None:
+                query = query.limit(limit)
+            notes = query.all()
+            return [NoteModel.model_validate(note) for note in notes]
+
+    def search_notes_by_owner(
+        self, owner_user_id: str, filter: dict = {}, skip: int = 0, limit: int = 30
+    ) -> NoteListResponse:
+        with get_db() as db:
+            query = (
+                db.query(Note, User)
+                .outerjoin(User, User.id == Note.user_id)
+                .filter(Note.user_id == owner_user_id)
+            )
+
+            query_key = filter.get("query")
+            if query_key:
+                query = query.filter(
+                    or_(
+                        Note.title.ilike(f"%{query_key}%"),
+                        cast(Note.data["content"]["md"], Text).ilike(f"%{query_key}%"),
+                    )
+                )
+
+            order_by = filter.get("order_by")
+            direction = filter.get("direction")
+
+            if order_by == "name":
+                query = (
+                    query.order_by(Note.title.asc())
+                    if direction == "asc"
+                    else query.order_by(Note.title.desc())
+                )
+            elif order_by == "created_at":
+                query = (
+                    query.order_by(Note.created_at.asc())
+                    if direction == "asc"
+                    else query.order_by(Note.created_at.desc())
+                )
+            elif order_by == "updated_at":
+                query = (
+                    query.order_by(Note.updated_at.asc())
+                    if direction == "asc"
+                    else query.order_by(Note.updated_at.desc())
+                )
+            else:
+                query = query.order_by(Note.updated_at.desc())
+
+            total = query.count()
+
+            if skip:
+                query = query.offset(skip)
+            if limit:
+                query = query.limit(limit)
+
+            items = query.all()
+
+            notes = []
+            for note, user in items:
+                notes.append(
+                    NoteUserResponse(
+                        **NoteModel.model_validate(note).model_dump(),
+                        user=(
+                            UserResponse(**UserModel.model_validate(user).model_dump())
+                            if user
+                            else None
+                        ),
+                    )
+                )
+
+            return NoteListResponse(items=notes, total=total)
+
     def get_note_by_id(self, id: str) -> Optional[NoteModel]:
         with get_db() as db:
             note = db.query(Note).filter(Note.id == id).first()
+            return NoteModel.model_validate(note) if note else None
+
+    def get_note_by_id_and_owner(
+        self, id: str, owner_user_id: str
+    ) -> Optional[NoteModel]:
+        with get_db() as db:
+            note = (
+                db.query(Note)
+                .filter(Note.id == id, Note.user_id == owner_user_id)
+                .first()
+            )
             return NoteModel.model_validate(note) if note else None
 
     def update_note_by_id(
@@ -384,9 +481,43 @@ class NoteTable:
             db.commit()
             return NoteModel.model_validate(note) if note else None
 
+    def update_note_by_id_and_owner(
+        self, id: str, owner_user_id: str, form_data: NoteUpdateForm
+    ) -> Optional[NoteModel]:
+        with get_db() as db:
+            note = (
+                db.query(Note)
+                .filter(Note.id == id, Note.user_id == owner_user_id)
+                .first()
+            )
+            if not note:
+                return None
+
+            form_data = form_data.model_dump(exclude_unset=True)
+
+            if "title" in form_data:
+                note.title = form_data["title"]
+            if "data" in form_data:
+                note.data = {**note.data, **form_data["data"]}
+            if "meta" in form_data:
+                note.meta = {**note.meta, **form_data["meta"]}
+            if "access_control" in form_data:
+                note.access_control = form_data["access_control"]
+
+            note.updated_at = int(time.time_ns())
+
+            db.commit()
+            return NoteModel.model_validate(note)
+
     def delete_note_by_id(self, id: str):
         with get_db() as db:
             db.query(Note).filter(Note.id == id).delete()
+            db.commit()
+            return True
+
+    def delete_note_by_id_and_owner(self, id: str, owner_user_id: str):
+        with get_db() as db:
+            db.query(Note).filter(Note.id == id, Note.user_id == owner_user_id).delete()
             db.commit()
             return True
 
