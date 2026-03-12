@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import urlencode, parse_qs, urlparse
 from pydantic import BaseModel
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from typing import Optional
 from aiocache import cached
@@ -555,6 +556,8 @@ class SPAStaticFiles(StaticFiles):
             return await super().get_response(path, scope)
         except (HTTPException, StarletteHTTPException) as ex:
             if ex.status_code == 404:
+                if path.startswith("api/") or path.startswith("ws/"):
+                    raise ex
                 if path.endswith(".js"):
                     # Return 404 for javascript files
                     raise ex
@@ -1910,11 +1913,29 @@ async def get_app_config(request: Request):
                 detail="Invalid token",
             )
         if data is not None and "id" in data:
-            user = Users.get_user_by_id(data["id"])
+            try:
+                user = Users.get_user_by_id(data["id"])
+            except OperationalError as e:
+                log.warning("Skipping user lookup in /api/config due to schema mismatch: %s", e)
+                user = None
 
     ui_profile = get_user_ui_profile(getattr(user, "id", None))
 
-    user_count = Users.get_num_users()
+    try:
+        user_count = Users.get_num_users()
+    except OperationalError as e:
+        log.warning("Skipping user count in /api/config due to schema mismatch: %s", e)
+        try:
+            with engine.connect() as conn:
+                user_count = int(
+                    conn.execute(text('SELECT COUNT(*) FROM "user"')).scalar() or 0
+                )
+        except Exception as raw_count_error:
+            log.warning(
+                "Raw user count fallback in /api/config also failed: %s",
+                raw_count_error,
+            )
+            user_count = 0
     onboarding = False
 
     if user is None:
