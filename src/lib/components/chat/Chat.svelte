@@ -578,12 +578,31 @@
 	let pageSubscribe = null;
 	let showControlsSubscribe = null;
 	let selectedFolderSubscribe = null;
+	let rootChatInitializing = false;
 
 	const stopAudio = () => {
 		try {
 			speechSynthesis.cancel();
 			$audioQueue.stop();
 		} catch {}
+	};
+
+	const initializeRootChat = async () => {
+		if (rootChatInitializing) {
+			return;
+		}
+
+		rootChatInitializing = true;
+		loading = true;
+
+		try {
+			await tick();
+			await initNewChat();
+		} finally {
+			rootChatInitializing = false;
+			loading = false;
+			await tick();
+		}
 	};
 
 	onMount(async () => {
@@ -596,8 +615,7 @@
 
 		pageSubscribe = page.subscribe(async (p) => {
 			if (p.url.pathname === '/') {
-				await tick();
-				await initNewChat();
+				await initializeRootChat();
 			}
 
 			stopAudio();
@@ -608,8 +626,7 @@
 		);
 
 		if (!chatIdProp) {
-			loading = false;
-			await tick();
+			await initializeRootChat();
 		}
 
 		if (storageChatInput) {
