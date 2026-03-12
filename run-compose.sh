@@ -1,4 +1,16 @@
 #!/bin/bash
+set -euo pipefail
+
+CANONICAL_SRC=/root/open-webui-src
+if [[ "$(pwd -P)" != "${CANONICAL_SRC}" ]]; then
+    echo "FATAL: non-canonical build source: $(pwd -P). Expected ${CANONICAL_SRC}" >&2
+    exit 1
+fi
+
+if [[ "$(git branch --show-current 2>/dev/null || true)" != "release" ]]; then
+    echo "FATAL: prod build must run from release branch" >&2
+    exit 1
+fi
 
 # Define color and formatting codes
 BOLD='\033[1m'
@@ -157,6 +169,8 @@ while [[ $# -gt 0 ]]; do
     shift # past argument or value
 done
 
+"${CANONICAL_SRC}/scripts/prestart_single_instance.sh"
+
 if [[ $kill_compose == true ]]; then
     docker compose down --remove-orphans
     echo -e "${GREEN}${BOLD}Compose project dropped successfully.${NC}"
@@ -239,6 +253,12 @@ if [[ $choice == "" || $choice == "y" ]]; then
     echo
     # Check exit status
     if [ $? -eq 0 ]; then
+        if "${CANONICAL_SRC}/scripts/apply_live_hotfixes.sh"; then
+            echo -e "${GREEN}${BOLD}Live hotfixes applied successfully.${NC}"
+        else
+            echo -e "${RED}${BOLD}Compose project started but live hotfix application failed.${NC}"
+            exit 1
+        fi
         echo -e "${GREEN}${BOLD}Compose project started successfully.${NC}"
     else
         echo -e "${RED}${BOLD}There was an error starting the compose project.${NC}"
