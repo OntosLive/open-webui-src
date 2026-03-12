@@ -597,7 +597,7 @@
 		pageSubscribe = page.subscribe(async (p) => {
 			if (p.url.pathname === '/') {
 				await tick();
-				initNewChat();
+				await initNewChat();
 			}
 
 			stopAudio();

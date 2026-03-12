@@ -1184,7 +1184,7 @@
 									</Tooltip>
 								{/if}
 
-								{#if message.usage}
+								{#if message.usage && !isKelia}
 									<Tooltip
 										content={message.usage
 											? `<pre>${sanitizeResponseContent(
@@ -1241,13 +1241,7 @@
 														: ''}"
 													disabled={feedbackLoading}
 													on:click={async () => {
-														await feedbackHandler(1);
 														await commitGoosebumps();
-														window.setTimeout(() => {
-															document
-																.getElementById(`message-feedback-${message.id}`)
-																?.scrollIntoView();
-														}, 0);
 													}}
 												>
 													<span class="text-xs font-medium">мурашки</span>
