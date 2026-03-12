@@ -112,6 +112,7 @@ api_port=11435
 webui_port=3000
 enable_gpu=false
 enable_api=false
+data_dir=
 headless=false
 build_image=false
 kill_compose=false
