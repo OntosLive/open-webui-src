@@ -110,6 +110,8 @@ usage() {
 gpu_count=1
 api_port=11435
 webui_port=3000
+enable_gpu=false
+enable_api=false
 headless=false
 build_image=false
 kill_compose=false
