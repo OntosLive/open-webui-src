@@ -78,13 +78,18 @@
 		chatAction,
 		generateMoACompletion,
 		stopTask,
-		getTaskIdsByChatId
+		getTaskIdsByChatId,
+		getModels
 	} from '$lib/apis';
 	import { getTools } from '$lib/apis/tools';
 	import { uploadFile } from '$lib/apis/files';
 	import { createOpenAITextStream } from '$lib/apis/streaming';
 	import { getFunctions } from '$lib/apis/functions';
 	import { updateFolderById } from '$lib/apis/folders';
+	import {
+		resolveDefaultChatModelSelection,
+		sanitizeSelectedChatModels
+	} from '$lib/utils/chat-models';
 
 	import Banner from '../common/Banner.svelte';
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
@@ -125,7 +130,7 @@
 
 	let chatIdUnsubscriber: Unsubscriber | undefined;
 
-	let selectedModels = [''];
+	let selectedModels = [];
 	let atSelectedModel: Model | undefined;
 	let selectedModelIds = [];
 	$: if (atSelectedModel !== undefined) {
@@ -264,6 +269,41 @@
 		if (selectedModelIds.filter((id) => id).length > 0) {
 			setDefaults();
 		}
+	};
+
+	const ensureModelsLoaded = async () => {
+		if ($models.length > 0) {
+			return $models;
+		}
+
+		const loadedModels = await getModels(
+			localStorage.token,
+			$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+		);
+
+		models.set(loadedModels);
+
+		return loadedModels;
+	};
+
+	const ensureSelectedModels = async () => {
+		const availableModels = (await ensureModelsLoaded()) ?? $models;
+
+		selectedModels = sanitizeSelectedChatModels(selectedModels, availableModels);
+
+		if (selectedModels.length > 0) {
+			return selectedModels;
+		}
+
+		const resolvedSelection = resolveDefaultChatModelSelection({
+			models: availableModels,
+			defaultWorkspacePresetId: $config?.default_workspace_preset_id ?? 'alba',
+			instanceDefaultModels: $config?.default_models,
+			workspaceDefaultModels: $settings?.models ?? null
+		});
+		selectedModels = resolvedSelection.modelIds;
+
+		return selectedModels;
 	};
 
 	const setDefaults = async () => {
@@ -890,6 +930,8 @@
 
 	const initNewChat = async () => {
 		console.log('initNewChat');
+		await ensureModelsLoaded();
+
 		if ($user?.role !== 'admin') {
 			if ($user?.permissions?.chat?.temporary_enforced) {
 				await temporaryChatEnabled.set(true);
@@ -909,10 +951,6 @@
 				await temporaryChatEnabled.set(false);
 			}
 		}
-
-		const availableModels = $models
-			.filter((m) => !(m?.info?.meta?.hidden ?? false))
-			.map((m) => m.id);
 
 		if ($page.url.searchParams.get('models') || $page.url.searchParams.get('model')) {
 			const urlModels = (
@@ -943,9 +981,7 @@
 				selectedModels = urlModels;
 			}
 
-			selectedModels = selectedModels.filter((modelId) =>
-				$models.map((m) => m.id).includes(modelId)
-			);
+			selectedModels = sanitizeSelectedChatModels(selectedModels, $models);
 		} else {
 			if ($selectedFolder?.data?.model_ids) {
 				selectedModels = $selectedFolder?.data?.model_ids;
@@ -963,16 +999,10 @@
 				}
 			}
 
-			selectedModels = selectedModels.filter((modelId) => availableModels.includes(modelId));
+			selectedModels = sanitizeSelectedChatModels(selectedModels, $models);
 		}
 
-		if (selectedModels.length === 0 || (selectedModels.length === 1 && selectedModels[0] === '')) {
-			if (availableModels.length > 0) {
-				selectedModels = [availableModels?.at(0) ?? ''];
-			} else {
-				selectedModels = [''];
-			}
-		}
+		await ensureSelectedModels();
 
 		await showControls.set(false);
 		await showCallOverlay.set(false);
@@ -1261,6 +1291,7 @@
 
 	const createMessagePair = async (userPrompt) => {
 		messageInput?.setText('');
+		await ensureSelectedModels();
 		if (selectedModels.length === 0) {
 			toast.error($i18n.t('Model not selected'));
 		} else {
@@ -1542,9 +1573,9 @@
 	const submitPrompt = async (userPrompt, { _raw = false } = {}) => {
 		console.log('submitPrompt', userPrompt, $chatId);
 
-		const _selectedModels = selectedModels.map((modelId) =>
-			$models.map((m) => m.id).includes(modelId) ? modelId : ''
-		);
+		await ensureSelectedModels();
+
+		const _selectedModels = sanitizeSelectedChatModels(selectedModels, $models);
 
 		if (JSON.stringify(selectedModels) !== JSON.stringify(_selectedModels)) {
 			selectedModels = _selectedModels;
@@ -1554,7 +1585,7 @@
 			toast.error($i18n.t('Please enter a prompt'));
 			return;
 		}
-		if (selectedModels.includes('')) {
+		if (selectedModels.length === 0) {
 			toast.error($i18n.t('Model not selected'));
 			return;
 		}
