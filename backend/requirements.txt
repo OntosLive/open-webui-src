@@ -148,7 +148,7 @@ opentelemetry-exporter-otlp==1.39.1
 opentelemetry-instrumentation==0.60b1
 opentelemetry-instrumentation-fastapi==0.60b1
 opentelemetry-instrumentation-sqlalchemy==0.60b1
-opentelemetry-instrumentation-redis==0.60b1
+opentelemetry-instrumentation-redis==0.61b0
 opentelemetry-instrumentation-requests==0.60b1
 opentelemetry-instrumentation-logging==0.60b1
 opentelemetry-instrumentation-httpx==0.60b1
